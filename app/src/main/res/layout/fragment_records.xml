@@ -2,7 +2,8 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main_background">
 
     <!-- Top Bar -->
     <LinearLayout
@@ -10,7 +11,9 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="16dp"
         android:gravity="center_vertical"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -21,28 +24,40 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="扫描记录"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            android:text="History"
+            android:textSize="32sp"
+            android:fontFamily="sans-serif-black"
+            android:textColor="#0F172A" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_manage"
+        <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="管理"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+            android:background="@drawable/bg_icon_circle_blue"
+            android:padding="4dp">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_manage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"
+                android:text="管理"
+                android:textColor="@color/primary"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
+        </FrameLayout>
 
     </LinearLayout>
 
-    <!-- Selection Toolbar (hidden by default) -->
+    <!-- Selection Toolbar -->
     <LinearLayout
         android:id="@+id/selection_toolbar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="8dp"
-        android:background="?attr/colorPrimary"
-        android:backgroundTint="#E3F2FD"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="12dp"
+        android:background="#1E293B"
         android:visibility="gone"
         android:gravity="center_vertical"
         app:layout_constraintEnd_toEndOf="parent"
@@ -53,6 +68,8 @@
             android:id="@+id/checkbox_select_all"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:buttonTint="#FFFFFF"
+            android:textColor="#FFFFFF"
             android:text="全选" />
 
         <TextView
@@ -60,8 +77,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="16dp"
             android:text="已选择: 0"
+            android:textColor="#94A3B8"
+            android:fontFamily="sans-serif-medium"
             android:textSize="14sp" />
 
         <com.google.android.material.button.MaterialButton
@@ -69,6 +88,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="删除"
+            android:textColor="#EF4444"
             style="@style/Widget.MaterialComponents.Button.TextButton" />
 
         <com.google.android.material.button.MaterialButton
@@ -76,6 +96,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="取消"
+            android:textColor="#FFFFFF"
             style="@style/Widget.MaterialComponents.Button.TextButton" />
 
     </LinearLayout>
@@ -84,22 +105,40 @@
         android:id="@+id/recycler_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:padding="8dp"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="100dp"
+        android:clipToPadding="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/selection_toolbar" />
 
-    <TextView
+    <LinearLayout
         android:id="@+id/tv_empty_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="暂无扫描记录"
-        android:textSize="16sp"
+        android:orientation="vertical"
+        android:gravity="center"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+        
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:src="@drawable/ic_bluetooth"
+            app:tint="#CBD5E1"
+            android:layout_marginBottom="16dp" />
+            
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="暂无扫描记录"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#94A3B8"
+            android:textSize="18sp" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

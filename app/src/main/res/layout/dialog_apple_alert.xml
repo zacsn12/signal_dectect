@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="0dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="8dp"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="#FFFFFF">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Dialog Header Block (Compact 68dp) -->
+        <RelativeLayout
+            android:id="@+id/dialog_header"
+            android:layout_width="match_parent"
+            android:layout_height="68dp"
+            android:background="#0A1E36"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp">
+
+            <!-- Radar Watermark in Dialog Header -->
+            <ImageView
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:src="@drawable/bg_radar_ring"
+                android:alpha="0.1"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="-20dp" />
+
+            <!-- Apple Brand Vector Logo in Header -->
+            <ImageView
+                android:id="@+id/iv_dialog_logo"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_brand_apple"
+                app:tint="#FFFFFF"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true" />
+
+            <TextView
+                android:id="@+id/tv_dialog_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="检测到 Apple 设备"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-black"
+                android:layout_toEndOf="@id/iv_dialog_logo"
+                android:layout_marginStart="12dp"
+                android:layout_centerVertical="true" />
+
+        </RelativeLayout>
+
+        <!-- Dialog Content / Body (Reduced Padding) -->
+        <ScrollView
+            android:id="@+id/dialog_scroll_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tv_dialog_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="设备详细信息描述将显示在这里..."
+                android:textColor="#334155"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.25"
+                android:fontFamily="sans-serif-medium" />
+        </ScrollView>
+
+        <!-- Dialog Footer / Buttons (Compact) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:background="#F8FAFC">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_dialog_negative"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:minHeight="0dp"
+                android:text="取消"
+                android:textColor="#64748B"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-bold" />
+
+            <Space
+                android:layout_width="8dp"
+                android:layout_height="wrap_content" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_dialog_positive"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:minHeight="0dp"
+                android:text="确定"
+                android:textColor="#FFFFFF"
+                app:backgroundTint="#2563EB"
+                app:cornerRadius="6dp"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-bold"
+                app:elevation="1dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

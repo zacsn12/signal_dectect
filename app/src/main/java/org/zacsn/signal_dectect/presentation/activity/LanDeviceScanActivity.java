@@ -29,6 +29,7 @@ public class LanDeviceScanActivity extends AppCompatActivity {
         binding = ActivityLanDeviceScanBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         
+        setSupportActionBar(binding.toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("局域网扫描");

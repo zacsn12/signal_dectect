@@ -21,6 +21,9 @@ public class DeviceDetailActivity extends AppCompatActivity {
         binding = ActivityDeviceDetailBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         
+        // Set custom toolbar
+        setSupportActionBar(binding.toolbar);
+        
         // Enable back button
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);

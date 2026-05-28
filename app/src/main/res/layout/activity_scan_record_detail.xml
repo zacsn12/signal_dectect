@@ -2,133 +2,171 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main_background">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
+        app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="扫描记录详情" />
+            app:title="扫描记录详情"
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
+            app:titleTextColor="#0F172A" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="40dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingHorizontal="24dp"
+            android:paddingTop="16dp">
 
             <!-- Record Info Card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="4dp">
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="8dp"
+                app:strokeWidth="0dp"
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="24dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="扫描信息"
+                        android:text="概览信息"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:fontFamily="sans-serif-black"
+                        android:textColor="?attr/colorOnSurface"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Scan Type Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingVertical="12dp"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tv_scan_type"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="扫描类型: 蓝牙巡检"
+                            android:textColor="?attr/colorOnSurface"
+                            android:fontFamily="sans-serif-medium"
+                            android:textSize="14sp" />
+                    </LinearLayout>
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:layout_marginTop="8dp"
-                        android:layout_marginBottom="8dp"
-                        android:background="#E0E0E0" />
+                        android:background="#10000000" />
 
-                    <TextView
-                        android:id="@+id/tv_scan_type"
-                        android:layout_width="wrap_content"
+                    <!-- Scan Time Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="扫描类型: 蓝牙巡检"
-                        android:textSize="16sp" />
+                        android:orientation="horizontal"
+                        android:paddingVertical="12dp"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tv_scan_time"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="扫描时间: 2024-01-01 12:00"
+                            android:textColor="?attr/colorOnSurface"
+                            android:fontFamily="sans-serif-medium"
+                            android:textSize="14sp" />
+                    </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tv_scan_time"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="扫描时间: 2024-01-01 12:00"
-                        android:textSize="16sp" />
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#10000000" />
 
-                    <TextView
-                        android:id="@+id/tv_duration"
-                        android:layout_width="wrap_content"
+                    <!-- Duration Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="扫描时长: 120 秒"
-                        android:textSize="16sp" />
+                        android:orientation="horizontal"
+                        android:paddingVertical="12dp"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tv_duration"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="扫描时长: 120 秒"
+                            android:textColor="?attr/colorOnSurface"
+                            android:fontFamily="sans-serif-medium"
+                            android:textSize="14sp" />
+                    </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tv_device_count"
-                        android:layout_width="wrap_content"
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#10000000" />
+
+                    <!-- Device Count Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="设备总数: 10"
-                        android:textSize="16sp" />
+                        android:orientation="horizontal"
+                        android:paddingVertical="12dp"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tv_device_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="设备总数: 10 台"
+                            android:textColor="@color/primary"
+                            android:background="@drawable/bg_pill_blue"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                            android:fontFamily="sans-serif-bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
 
                 </LinearLayout>
-
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Device List Card -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Device List Header -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="设备列表"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-black"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="12dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_view_devices"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="4dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="设备列表"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="8dp"
-                        android:layout_marginBottom="8dp"
-                        android:background="#E0E0E0" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/recycler_view_devices"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false" />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
+                android:nestedScrollingEnabled="false"
+                android:clipToPadding="false" />
 
         </LinearLayout>
-
     </androidx.core.widget.NestedScrollView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

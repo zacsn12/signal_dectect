@@ -1,58 +1,127 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView 
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp">
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="8dp"
+    android:background="@drawable/bg_main_background"
+    android:elevation="6dp"
+    android:stateListAnimator="@animator/card_press_anim">
+
+    <!-- Card Background shape -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_card_rounded" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:padding="16dp">
 
-        <TextView
-            android:id="@+id/tv_device_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Device Name"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+        <!-- Left: Manufacturer Brand Icon Container -->
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_icon_circle_blue">
+            <ImageView
+                android:id="@+id/iv_manufacturer_icon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_bluetooth"
+                app:tint="@color/primary" />
+        </FrameLayout>
 
-        <TextView
-            android:id="@+id/tv_mac_address"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="MAC Address"
-            android:textSize="14sp" />
-
+        <!-- Right: Device details -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Signal Status Circle Dot -->
+                <View
+                    android:id="@+id/view_signal_status"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_icon_circle_green" />
+
+                <TextView
+                    android:id="@+id/tv_device_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Device Name"
+                    android:textSize="16sp"
+                    android:fontFamily="sans-serif-black"
+                    android:textColor="#0F172A" />
+
+                <TextView
+                    android:id="@+id/tv_signal_strength"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="-50 dBm"
+                    android:textSize="18sp"
+                    android:fontFamily="sans-serif-black"
+                    android:textColor="@color/primary" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/tv_signal_strength"
-                android:layout_width="0dp"
+                android:id="@+id/tv_mac_address"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="-50 dBm" />
+                android:text="MAC Address"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:textColor="#64748B"
+                android:layout_marginTop="2dp" />
 
-            <TextView
-                android:id="@+id/tv_distance"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="1.5 m" />
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
 
-            <TextView
-                android:id="@+id/tv_device_type"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="WIFI" />
+                <TextView
+                    android:id="@+id/tv_distance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_pill_blue"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:textColor="@color/primary_variant"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="1.5 m" />
+
+                <Space
+                    android:layout_width="8dp"
+                    android:layout_height="match_parent" />
+
+                <TextView
+                    android:id="@+id/tv_device_type"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_pill_gray"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:textColor="#475569"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="WIFI" />
+            </LinearLayout>
         </LinearLayout>
-
     </LinearLayout>
-
-</androidx.cardview.widget.CardView>
+</FrameLayout>
