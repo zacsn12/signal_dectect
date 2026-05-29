@@ -45,6 +45,22 @@ public class RecordsFragment extends Fragment {
         setupRecyclerView();
         setupButtons();
         observeViewModel();
+        setupSearch();
+    }
+
+    private void setupSearch() {
+        binding.etSearch.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                filterRecords(s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
     }
     
     private void setupRecyclerView() {
@@ -204,19 +220,48 @@ public class RecordsFragment extends Fragment {
                 .show();
     }
     
+    private List<org.zacsn.signal_dectect.data.database.ScanRecordEntity> allRecordsList = new ArrayList<>();
+    private String currentSearchQuery = "";
+
     private void observeViewModel() {
         viewModel.getAllRecords().observe(getViewLifecycleOwner(), records -> {
-            adapter.submitList(records);
-            if (records.isEmpty()) {
-                binding.tvEmptyMessage.setVisibility(View.VISIBLE);
-                binding.recyclerView.setVisibility(View.GONE);
-                binding.btnManage.setEnabled(false);
-            } else {
-                binding.tvEmptyMessage.setVisibility(View.GONE);
-                binding.recyclerView.setVisibility(View.VISIBLE);
-                binding.btnManage.setEnabled(true);
-            }
+            allRecordsList = records;
+            filterRecords(currentSearchQuery);
+            binding.btnManage.setEnabled(!records.isEmpty());
         });
+    }
+
+    private void filterRecords(String query) {
+        currentSearchQuery = query == null ? "" : query.toLowerCase().trim();
+        List<org.zacsn.signal_dectect.data.database.ScanRecordEntity> filteredList = new ArrayList<>();
+        
+        if (currentSearchQuery.isEmpty()) {
+            filteredList.addAll(allRecordsList);
+        } else {
+            for (org.zacsn.signal_dectect.data.database.ScanRecordEntity record : allRecordsList) {
+                boolean matchName = record.getName() != null && record.getName().toLowerCase().contains(currentSearchQuery);
+                // Also search by formatted time if needed, but name is main target
+                if (matchName) {
+                    filteredList.add(record);
+                } else {
+                    // Try to match formatted time
+                    String timeStr = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(new java.util.Date(record.getTimestamp()));
+                    if (timeStr.contains(currentSearchQuery)) {
+                        filteredList.add(record);
+                    }
+                }
+            }
+        }
+        
+        adapter.submitList(filteredList);
+        
+        if (filteredList.isEmpty()) {
+            binding.tvEmptyMessage.setVisibility(View.VISIBLE);
+            binding.recyclerView.setVisibility(View.GONE);
+        } else {
+            binding.tvEmptyMessage.setVisibility(View.GONE);
+            binding.recyclerView.setVisibility(View.VISIBLE);
+        }
     }
     
     @Override

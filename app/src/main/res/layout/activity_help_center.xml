@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F4F5F7">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="#0A1E36"
+        android:paddingTop="24dp">
+        
+        <ImageView
+            android:id="@+id/iv_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:src="@drawable/ic_back"
+            android:layout_gravity="start|center_vertical"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="帮助中心"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-black" />
+    </FrameLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="1. 什么是信号巡检机型？"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#333333" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="在信号巡检页面中，只有属于“信号巡检机型”列表中设置的厂商设备才会被标记并发出警示。您可以在该列表中添加或删除厂商名称（例如：apple）。"
+                android:textSize="14sp"
+                android:textColor="#666666" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="2. 什么是白名单与黑名单？"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#333333" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="白名单：指定某些具体的设备（MAC地址），即便是属于被警示的厂商，也不会被警示。\n\n黑名单：指定的设备（MAC地址），无论其厂商是什么，都会被无条件警示。"
+                android:textSize="14sp"
+                android:textColor="#666666" />
+                
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="3. 为什么扫描不到某些设备？"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#333333" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="系统需要获取位置信息以及相关的蓝牙/WiFi扫描权限。部分设备可能在息屏或休眠状态下停止广播信号，导致无法被扫描到。"
+                android:textSize="14sp"
+                android:textColor="#666666" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

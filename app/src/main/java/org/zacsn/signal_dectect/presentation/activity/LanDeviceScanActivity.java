@@ -29,11 +29,8 @@ public class LanDeviceScanActivity extends AppCompatActivity {
         binding = ActivityLanDeviceScanBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         
-        setSupportActionBar(binding.toolbar);
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("局域网扫描");
-        }
+        binding.tvLargeDeviceCount.setText("0");
+        binding.btnBack.setOnClickListener(v -> finish());
         
         executorService = Executors.newFixedThreadPool(20);
         
@@ -53,8 +50,25 @@ public class LanDeviceScanActivity extends AppCompatActivity {
         binding.btnStartScan.setOnClickListener(v -> {
             if (!isScanning) {
                 startLanScan();
+            } else {
+                stopLanScan();
             }
         });
+    }
+    
+    private void stopLanScan() {
+        isScanning = false;
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdownNow();
+        }
+        
+        binding.btnStartScan.setText("开始扫描");
+        binding.btnStartScan.setIconResource(android.R.drawable.ic_media_play);
+        binding.progressBar.setVisibility(View.GONE);
+        binding.tvStatus.setText("扫描已停止");
+        if (binding.radarSweep != null) {
+            binding.radarSweep.clearAnimation();
+        }
     }
     
     private void startLanScan() {
@@ -62,19 +76,35 @@ public class LanDeviceScanActivity extends AppCompatActivity {
         deviceList.clear();
         adapter.submitList(new ArrayList<>());
         
-        binding.btnStartScan.setEnabled(false);
+        // Ensure any previous executor is shut down
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdownNow();
+        }
+        executorService = Executors.newFixedThreadPool(20);
+        
+        binding.btnStartScan.setText("停止扫描");
+        binding.btnStartScan.setIconResource(android.R.drawable.ic_media_pause);
+        binding.tvLargeDeviceCount.setText("0");
+        binding.tvDeviceCount.setText("发现设备: 0");
         binding.progressBar.setVisibility(View.VISIBLE);
         binding.tvStatus.setText("正在扫描局域网设备...");
+        
+        // Start radar sweep animation
+        android.view.animation.Animation rotateAnim = android.view.animation.AnimationUtils.loadAnimation(this, org.zacsn.signal_dectect.R.anim.radar_sweep);
+        binding.radarSweep.startAnimation(rotateAnim);
         
         new Thread(() -> {
             try {
                 String localIp = getLocalIpAddress();
                 if (localIp == null) {
                     runOnUiThread(() -> {
+                        if (binding == null || isFinishing() || isDestroyed()) return;
                         binding.tvStatus.setText("无法获取本机IP地址");
                         binding.progressBar.setVisibility(View.GONE);
-                        binding.btnStartScan.setEnabled(true);
+                        binding.btnStartScan.setText("开始扫描");
+                        binding.btnStartScan.setIconResource(android.R.drawable.ic_media_play);
                         isScanning = false;
+                        binding.radarSweep.clearAnimation();
                     });
                     return;
                 }
@@ -85,10 +115,13 @@ public class LanDeviceScanActivity extends AppCompatActivity {
             } catch (Exception e) {
                 e.printStackTrace();
                 runOnUiThread(() -> {
+                    if (binding == null || isFinishing() || isDestroyed()) return;
                     binding.tvStatus.setText("扫描失败: " + e.getMessage());
                     binding.progressBar.setVisibility(View.GONE);
-                    binding.btnStartScan.setEnabled(true);
+                    binding.btnStartScan.setText("开始扫描");
+                    binding.btnStartScan.setIconResource(android.R.drawable.ic_media_play);
                     isScanning = false;
+                    binding.radarSweep.clearAnimation();
                 });
             }
         }).start();
@@ -122,17 +155,21 @@ public class LanDeviceScanActivity extends AppCompatActivity {
     }
     
     private void scanSubnet(String subnet) {
-        int scannedCount = 0;
         int totalHosts = 254;
+        java.util.concurrent.atomic.AtomicInteger completedCount = new java.util.concurrent.atomic.AtomicInteger(0);
         
         for (int i = 1; i <= totalHosts; i++) {
             final String host = subnet + "." + i;
-            final int currentCount = i;
             
             executorService.execute(() -> {
+                if (!isScanning || Thread.currentThread().isInterrupted()) {
+                    return;
+                }
                 try {
                     InetAddress address = InetAddress.getByName(host);
+                    if (!isScanning) return;
                     if (address.isReachable(1000)) {
+                        if (!isScanning) return;
                         String hostname = address.getHostName();
                         String mac = getMacAddress(host);
                         
@@ -147,23 +184,31 @@ public class LanDeviceScanActivity extends AppCompatActivity {
                         deviceList.add(device);
                         
                         runOnUiThread(() -> {
+                            if (binding == null || isFinishing() || isDestroyed()) return;
                             adapter.submitList(new ArrayList<>(deviceList));
                             binding.tvDeviceCount.setText("发现设备: " + deviceList.size());
+                            binding.tvLargeDeviceCount.setText(String.valueOf(deviceList.size()));
                         });
                     }
                 } catch (Exception e) {
                     // Host not reachable
                 }
                 
+                int done = completedCount.incrementAndGet();
                 runOnUiThread(() -> {
-                    int progress = (currentCount * 100) / totalHosts;
+                    if (binding == null || isFinishing() || isDestroyed() || !isScanning) return;
+                    int progress = (done * 100) / totalHosts;
                     binding.tvStatus.setText("扫描进度: " + progress + "%");
                     
-                    if (currentCount == totalHosts) {
+                    if (done == totalHosts) {
                         binding.progressBar.setVisibility(View.GONE);
-                        binding.btnStartScan.setEnabled(true);
+                        binding.btnStartScan.setText("开始扫描");
+                        binding.btnStartScan.setIconResource(android.R.drawable.ic_media_play);
                         binding.tvStatus.setText("扫描完成，共发现 " + deviceList.size() + " 个设备");
                         isScanning = false;
+                        if (binding.radarSweep != null) {
+                            binding.radarSweep.clearAnimation();
+                        }
                     }
                 });
             });
@@ -198,17 +243,11 @@ public class LanDeviceScanActivity extends AppCompatActivity {
     }
     
     @Override
-    public boolean onOptionsItemSelected(android.view.MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-    
-    @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (binding != null && binding.radarSweep != null) {
+            binding.radarSweep.clearAnimation();
+        }
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdownNow();
         }

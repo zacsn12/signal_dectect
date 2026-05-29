@@ -34,6 +34,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        org.zacsn.signal_dectect.util.SessionManager sessionManager = new org.zacsn.signal_dectect.util.SessionManager(this);
+        if (!sessionManager.isLoggedIn()) {
+            android.content.Intent intent = new android.content.Intent(this, org.zacsn.signal_dectect.presentation.activity.LoginActivity.class);
+            startActivity(intent);
+            finish();
+            return;
+        }
+
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         
@@ -56,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
                 fragment = new HomeFragment();
             } else if (itemId == R.id.navigation_records) {
                 fragment = new RecordsFragment();
+            } else if (itemId == R.id.navigation_profile) {
+                fragment = new org.zacsn.signal_dectect.presentation.fragment.ProfileFragment();
             }
             
             if (fragment != null) {

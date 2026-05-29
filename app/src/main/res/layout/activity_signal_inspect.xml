@@ -60,11 +60,47 @@
             android:layout_height="wrap_content"
             android:layout_gravity="top|center_horizontal"
             android:layout_marginTop="40dp"
-            android:text="信号检测"
+            android:text="信号巡检"
             android:textSize="22sp"
             android:fontFamily="sans-serif-black"
             android:textColor="#FFFFFF"
             android:letterSpacing="0.1" />
+
+        <!-- Center Device Count Display -->
+        <TextView
+            android:id="@+id/tv_large_device_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp"
+            android:text="0"
+            android:textSize="60sp"
+            android:fontFamily="sans-serif-black"
+            android:textColor="#FFFFFF" />
+
+        <!-- Volume Icon -->
+        <ImageButton
+            android:id="@+id/btn_volume"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="32dp"
+            android:layout_marginEnd="64dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_volume"
+            app:tint="#FFFFFF" />
+
+        <!-- Settings Gear Icon -->
+        <ImageButton
+            android:id="@+id/btn_settings"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="32dp"
+            android:layout_marginEnd="16dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_settings"
+            app:tint="#FFFFFF" />
 
         <!-- Back Button -->
         <ImageButton
@@ -83,7 +119,8 @@
             android:id="@+id/fab"
             android:layout_width="wrap_content"
             android:layout_height="56dp"
-            android:layout_gravity="center"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="32dp"
             android:text="开始巡检"
             android:textSize="16sp"
             android:textColor="#0A1E36"

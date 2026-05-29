@@ -63,7 +63,7 @@ public class SignalInspectViewModel extends ViewModel {
         this.deviceRepository = deviceRepository;
     }
     
-    public void startScan(ScanType scanType) {
+    public boolean startScan(ScanType scanType) {
         // Clear device list before starting new scan
         devices.setValue(new ArrayList<>());
         
@@ -84,9 +84,11 @@ public class SignalInspectViewModel extends ViewModel {
             scanState.setValue(ScanState.SCANNING);
             scanStartTime = System.currentTimeMillis();
             startDurationTimer();
+            return true;
         } else {
             scanState.setValue(ScanState.ERROR);
             errorMessage.setValue("权限未授予");
+            return false;
         }
     }
     

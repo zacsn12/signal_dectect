@@ -47,9 +47,10 @@ public class SignalInspectActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
         binding = ActivitySignalInspectBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        
+
         // Initialize handler and sound effect manager
         handler = new android.os.Handler(android.os.Looper.getMainLooper());
         soundEffectManager = new SoundEffectManager(this);
@@ -63,28 +64,100 @@ public class SignalInspectActivity extends AppCompatActivity {
             switch (scanTypeStr) {
                 case "BLUETOOTH":
                     scanType = ScanType.BLUETOOTH_ONLY;
-                    setTitle("蓝牙巡检");
-                    binding.tvTitle.setText("蓝牙巡检");
                     break;
                 case "WIFI":
-                    scanType = ScanType.WIFI_ONLY;
-                    setTitle("WiFi巡检");
-                    binding.tvTitle.setText("WiFi巡检");
-                    break;
                 case "LAN":
-                    scanType = ScanType.WIFI_ONLY; // LAN scan uses WiFi
-                    setTitle("局域网扫描");
-                    binding.tvTitle.setText("局域网扫描");
+                    scanType = ScanType.WIFI_ONLY;
+                    break;
+                case "CELLULAR":
+                    scanType = ScanType.CELLULAR_ONLY;
                     break;
                 default:
                     scanType = ScanType.ALL;
-                    setTitle("信号检测");
-                    binding.tvTitle.setText("信号检测");
                     break;
             }
         } else {
-            binding.tvTitle.setText("信号检测");
+            scanType = ScanType.ALL;
         }
+        
+        setTitle("信号巡检");
+        binding.tvTitle.setText("信号巡检");
+
+        // Volume adjustment icon
+        binding.btnVolume.setOnClickListener(v -> {
+            android.media.AudioManager audioManager = (android.media.AudioManager) getSystemService(android.content.Context.AUDIO_SERVICE);
+            if (audioManager == null) return;
+            
+            View popupView = getLayoutInflater().inflate(org.zacsn.signal_dectect.R.layout.popup_volume, null);
+            int popupWidth = (int) (300 * getResources().getDisplayMetrics().density);
+            android.widget.PopupWindow popupWindow = new android.widget.PopupWindow(
+                    popupView,
+                    popupWidth,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    true
+            );
+            
+            // Required for tapping outside to dismiss
+            popupWindow.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            
+            android.widget.SeekBar seekBar = popupView.findViewById(org.zacsn.signal_dectect.R.id.seek_bar_volume);
+            int maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+            int currentVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+            
+            seekBar.setMax(maxVolume);
+            seekBar.setProgress(currentVolume);
+            updateSoundEffectVolume(currentVolume, maxVolume);
+            
+            seekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser) {
+                        audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, progress, 0);
+                        updateSoundEffectVolume(progress, maxVolume);
+                    }
+                }
+                @Override
+                public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
+                @Override
+                public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+            });
+            
+            // Show popup aligned to the end (right) of the button
+            popupWindow.showAsDropDown(v, 0, 20, android.view.Gravity.END);
+        });
+
+        // Settings gear popup menu
+        binding.btnSettings.setOnClickListener(v -> {
+            android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, v);
+            popupMenu.getMenu().add(0, 1, 0, "蓝牙巡检").setChecked(scanType == ScanType.BLUETOOTH_ONLY);
+            popupMenu.getMenu().add(0, 2, 0, "WiFi巡检").setChecked(scanType == ScanType.WIFI_ONLY);
+            popupMenu.getMenu().add(0, 3, 0, "蜂窝巡检").setChecked(scanType == ScanType.CELLULAR_ONLY);
+            popupMenu.getMenu().add(0, 4, 0, "全部扫描").setChecked(scanType == ScanType.ALL);
+            popupMenu.getMenu().setGroupCheckable(0, true, true);
+            popupMenu.setOnMenuItemClickListener(item -> {
+                if (isScanning) {
+                    android.widget.Toast.makeText(this, "请先停止巡检再切换模式", android.widget.Toast.LENGTH_SHORT).show();
+                    return true;
+                }
+                switch (item.getItemId()) {
+                    case 1:
+                        scanType = ScanType.BLUETOOTH_ONLY;
+                        break;
+                    case 2:
+                        scanType = ScanType.WIFI_ONLY;
+                        break;
+                    case 3:
+                        scanType = ScanType.CELLULAR_ONLY;
+                        break;
+                    case 4:
+                        scanType = ScanType.ALL;
+                        break;
+                }
+                android.widget.Toast.makeText(this, "已切换为: " + item.getTitle(), android.widget.Toast.LENGTH_SHORT).show();
+                return true;
+            });
+            popupMenu.show();
+        });
         
         // Setup custom back button
         binding.btnBack.setOnClickListener(v -> onBackPressed());
@@ -102,6 +175,34 @@ public class SignalInspectActivity extends AppCompatActivity {
         setupRecyclerView();
         setupFab();
         observeViewModel();
+    }
+
+    private void updateSoundEffectVolume(int volume, int maxVolume) {
+        if (soundEffectManager == null || maxVolume <= 0) {
+            return;
+        }
+        soundEffectManager.setVolume(volume / (float) maxVolume);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        boolean handled = super.onKeyDown(keyCode, event);
+        if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_MUTE) {
+            syncSoundEffectVolumeFromSystem();
+        }
+        return handled;
+    }
+
+    private void syncSoundEffectVolumeFromSystem() {
+        android.media.AudioManager audioManager = (android.media.AudioManager) getSystemService(android.content.Context.AUDIO_SERVICE);
+        if (audioManager == null) {
+            return;
+        }
+        int maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+        int currentVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+        updateSoundEffectVolume(currentVolume, maxVolume);
     }
     
     private void setupRecyclerView() {
@@ -129,7 +230,9 @@ public class SignalInspectActivity extends AppCompatActivity {
     
     private void setupFab() {
         binding.fab.setOnClickListener(v -> {
+            Log.i("SignalInspectActivity", "Inspect button clicked, isScanning=" + isScanning + ", scanType=" + scanType.toInt());
             if (isScanning) {
+                soundEffectManager.stopAllSounds();
                 viewModel.stopScan();
             } else {
                 // Reset Apple device flags when starting new scan
@@ -137,7 +240,16 @@ public class SignalInspectActivity extends AppCompatActivity {
                 hasShownAppleLeInfo = false;
                 alertedAppleDevices.clear();
                 appleLeDevices.clear();
-                viewModel.startScan(scanType);
+                boolean soundStarted = soundEffectManager.startNormalScanSound();
+                if (!soundStarted) {
+                    android.widget.Toast.makeText(this, "巡检音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
+                }
+
+                boolean scanStarted = viewModel.startScan(scanType);
+                if (!scanStarted) {
+                    soundEffectManager.stopAllSounds();
+                    android.widget.Toast.makeText(this, "权限未授予，无法开始巡检", android.widget.Toast.LENGTH_SHORT).show();
+                }
             }
         });
     }
@@ -158,9 +270,18 @@ public class SignalInspectActivity extends AppCompatActivity {
             // Control sound effects and radar sweep animations based on scanning state
             if (isScanning) {
                 Log.i("SignalInspectActivity", "Starting scan - triggering sound effect");
-                soundEffectManager.startNormalScanSound();
+                if (!soundEffectManager.isPlaying()) {
+                    boolean soundStarted = soundEffectManager.startNormalScanSound();
+                    if (!soundStarted) {
+                        android.widget.Toast.makeText(this, "巡检音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                }
                 android.view.animation.Animation rotateAnim = android.view.animation.AnimationUtils.loadAnimation(this, org.zacsn.signal_dectect.R.anim.radar_sweep);
                 binding.radarSweep.startAnimation(rotateAnim);
+            } else if (state == SignalInspectViewModel.ScanState.ERROR) {
+                Log.w("SignalInspectActivity", "Scan failed - stopping sound effect");
+                soundEffectManager.stopAllSounds();
+                binding.radarSweep.clearAnimation();
             } else {
                 Log.i("SignalInspectActivity", "Stopping scan - stopping sound effect");
                 soundEffectManager.stopAllSounds();
@@ -182,6 +303,7 @@ public class SignalInspectActivity extends AppCompatActivity {
             
             adapter.submitList(sortedDevices);
             binding.tvDeviceCount.setText("设备数: " + sortedDevices.size());
+            binding.tvLargeDeviceCount.setText(String.valueOf(sortedDevices.size()));
             
             // Check for Apple devices and switch to alert sound if found
             checkForAppleDevices(sortedDevices);
@@ -189,6 +311,12 @@ public class SignalInspectActivity extends AppCompatActivity {
         
         viewModel.getScanDuration().observe(this, duration -> {
             binding.tvDuration.setText("扫描时长: " + duration + "s");
+        });
+
+        viewModel.getErrorMessage().observe(this, message -> {
+            if (message != null && !message.isEmpty()) {
+                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show();
+            }
         });
     }
     
@@ -238,7 +366,10 @@ public class SignalInspectActivity extends AppCompatActivity {
                     // Classic Bluetooth Apple device - HIGH PRIORITY
                     if (!hasAppleClassicBluetooth) {
                         hasAppleClassicBluetooth = true;
-                        soundEffectManager.switchToAlertSound();
+                        boolean soundStarted = soundEffectManager.switchToAlertSound();
+                        if (!soundStarted) {
+                            android.widget.Toast.makeText(this, "告警音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
+                        }
                     }
                     
                     alertedAppleDevices.add(macAddress);
@@ -526,6 +657,8 @@ public class SignalInspectActivity extends AppCompatActivity {
             return "蓝牙巡检";
         } else if (scanType == ScanType.WIFI_ONLY) {
             return "WiFi巡检";
+        } else if (scanType == ScanType.CELLULAR_ONLY) {
+            return "蜂窝巡检";
         } else {
             return "扫描";
         }
@@ -539,8 +672,10 @@ public class SignalInspectActivity extends AppCompatActivity {
             return 1;  // BT
         } else if (scanType == ScanType.WIFI_ONLY) {
             return 2;  // WiFi
+        } else if (scanType == ScanType.CELLULAR_ONLY) {
+            return 4;  // Cellular
         } else if (scanType == ScanType.ALL) {
-            return 3;  // BT + WiFi
+            return 7;  // BT + WiFi + Cellular (1+2+4)
         } else {
             return 0;
         }

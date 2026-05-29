@@ -4,117 +4,191 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/bg_main_background">
+    android:background="#FFFFFF">
 
-    <!-- Custom Toolbar -->
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
+    <!-- Top 2/5ths Area: Radar display & Title -->
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        app:navigationIconTint="#0F172A"
-        app:title="局域网扫描"
-        app:titleTextColor="#0F172A"
-        app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+        android:layout_height="0dp"
+        android:layout_weight="2"
+        android:background="#0A1E36">
 
-    <!-- Header Area -->
+        <!-- Concentric Radar Rings -->
+        <View
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_radar_ring" />
+
+        <View
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_radar_ring" />
+
+        <View
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_radar_ring" />
+
+        <!-- Crosshair grid lines -->
+        <View
+            android:layout_width="280dp"
+            android:layout_height="1dp"
+            android:layout_gravity="center"
+            android:background="#152563EB" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="280dp"
+            android:layout_gravity="center"
+            android:background="#152563EB" />
+
+        <!-- Radar Sweep View (rotating) -->
+        <View
+            android:id="@+id/radar_sweep"
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_radar_sweep" />
+
+        <!-- Title centered at the top -->
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="40dp"
+            android:text="局域网扫描"
+            android:textSize="22sp"
+            android:fontFamily="sans-serif-black"
+            android:textColor="#FFFFFF"
+            android:letterSpacing="0.1" />
+
+        <!-- Center Device Count Display -->
+        <TextView
+            android:id="@+id/tv_large_device_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp"
+            android:text="0"
+            android:textSize="60sp"
+            android:fontFamily="sans-serif-black"
+            android:textColor="#FFFFFF" />
+
+        <!-- Back Button -->
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|start"
+            android:layout_marginTop="32dp"
+            android:layout_marginStart="16dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="?attr/homeAsUpIndicator"
+            app:tint="#FFFFFF" />
+
+        <!-- Center Inspect Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_start_scan"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="32dp"
+            android:text="开始扫描"
+            android:textSize="16sp"
+            android:textColor="#0A1E36"
+            android:fontFamily="sans-serif-black"
+            app:backgroundTint="#FFFFFF"
+            app:cornerRadius="28dp"
+            app:icon="@android:drawable/ic_media_play"
+            app:iconTint="#0A1E36"
+            app:iconSize="20dp"
+            app:strokeWidth="2dp"
+            app:strokeColor="#2563EB"
+            app:elevation="8dp" />
+
+    </FrameLayout>
+
+    <!-- Bottom 3/5ths Area: Device List -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="3"
         android:orientation="vertical"
-        android:paddingHorizontal="24dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp">
+        android:background="#F8FAFC"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="16dp">
 
-        <TextView
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="LAN Monitor"
-            android:textSize="36sp"
-            android:fontFamily="sans-serif-black"
-            android:textColor="#0F172A" />
+            android:layout_height="4dp"
+            android:indeterminate="true"
+            android:visibility="gone"
+            android:layout_marginTop="-16dp"
+            android:layout_marginBottom="12dp" />
 
-        <TextView
-            android:id="@+id/tv_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Ready to map local network"
-            android:textSize="16sp"
-            android:textColor="#64748B"
-            android:layout_marginTop="8dp" />
-    </LinearLayout>
-
-    <!-- Scan Control Card -->
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="16dp"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="8dp"
-        app:cardBackgroundColor="#FFFFFF">
-
+        <!-- Section Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
 
-            <ProgressBar
-                android:id="@+id/progress_bar"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:layout_marginBottom="16dp" />
+                android:layout_weight="1"
+                android:text="探测设备列表"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-black"
+                android:textColor="#0F172A" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <!-- Device Count Badge -->
+            <TextView
+                android:id="@+id/tv_device_count"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:text="发现设备: 0"
+                android:textColor="#2563EB"
+                android:background="@drawable/bg_pill_blue"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-bold" />
 
-                <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_icon_circle_orange"
-                    android:paddingHorizontal="16dp"
-                    android:paddingVertical="8dp">
-                    <TextView
-                        android:id="@+id/tv_device_count"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0 Devices"
-                        android:textSize="16sp"
-                        android:fontFamily="sans-serif-bold"
-                        android:textColor="@color/warning" />
-                </FrameLayout>
+            <Space
+                android:layout_width="8dp"
+                android:layout_height="wrap_content" />
 
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_start_scan"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="开始扫描"
-                    android:paddingHorizontal="24dp"
-                    android:paddingVertical="12dp"
-                    app:cornerRadius="12dp"
-                    android:backgroundTint="@color/warning" />
-            </LinearLayout>
+            <!-- Status Badge -->
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="就绪"
+                android:textColor="#475569"
+                android:background="@drawable/bg_pill_gray"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-bold" />
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
 
-    <!-- Device List -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_view"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingHorizontal="8dp"
-        android:clipToPadding="false"
-        android:paddingBottom="100dp" />
+        <!-- Device List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="40dp" />
+
+    </LinearLayout>
 
 </LinearLayout>

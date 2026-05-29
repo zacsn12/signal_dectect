@@ -37,6 +37,7 @@
     <application
         android:name=".SignalDetectApplication"
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -80,6 +81,39 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Signal_dectect" />
+
+        <!-- Login Activity -->
+        <activity
+            android:name=".presentation.activity.LoginActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Signal_dectect" />
+
+        <!-- Profile Feature Activities -->
+        <activity
+            android:name=".presentation.activity.ChangePasswordActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".presentation.activity.HelpCenterActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".presentation.activity.UpgradeActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".presentation.activity.AuthInfoActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".presentation.activity.ListManagerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".presentation.activity.DeviceModelActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <!-- Signal Scan Foreground Service -->
         <service
