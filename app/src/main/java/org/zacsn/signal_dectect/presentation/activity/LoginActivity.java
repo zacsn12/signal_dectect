@@ -2,11 +2,11 @@ package org.zacsn.signal_dectect.presentation.activity;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -16,6 +16,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import org.zacsn.signal_dectect.R;
 import org.zacsn.signal_dectect.data.api.LoginResponse;
 import org.zacsn.signal_dectect.presentation.viewmodel.LoginViewModel;
+import org.zacsn.signal_dectect.util.SessionManager;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -33,19 +34,16 @@ public class LoginActivity extends AppCompatActivity {
         TextInputEditText etPassword = findViewById(R.id.et_password);
         MaterialButton btnLogin = findViewById(R.id.btn_login);
         ProgressBar progressBar = findViewById(R.id.progress_bar);
-        CheckBox cbTestMode = findViewById(R.id.cb_test_mode);
+        SessionManager sessionManager = new SessionManager(this);
 
         ivBack.setVisibility(View.GONE);
 
         btnLogin.setOnClickListener(v -> {
             String username = etUsername.getText() != null ? etUsername.getText().toString() : "";
             String password = etPassword.getText() != null ? etPassword.getText().toString() : "";
-            boolean isTestMode = cbTestMode.isChecked();
-            
-            org.zacsn.signal_dectect.util.SessionManager sessionManager = new org.zacsn.signal_dectect.util.SessionManager(this);
-            String expectedPassword = sessionManager.getPassword();
-            
-            viewModel.login(username, password, isTestMode, expectedPassword);
+            String machineCode = sessionManager.getMachineCode();
+
+            viewModel.login(username, password, machineCode);
         });
 
         viewModel.getIsLoading().observe(this, isLoading -> {
@@ -62,7 +60,11 @@ public class LoginActivity extends AppCompatActivity {
 
         viewModel.getLoginResult().observe(this, result -> {
             if (result != null && !result.isEmpty()) {
-                Toast.makeText(this, result, Toast.LENGTH_SHORT).show();
+                if ("登录成功".equals(result)) {
+                    Toast.makeText(this, result, Toast.LENGTH_SHORT).show();
+                } else {
+                    showLoginErrorDialog(result);
+                }
             }
         });
 
@@ -70,7 +72,6 @@ public class LoginActivity extends AppCompatActivity {
             if (isSuccess != null && isSuccess) {
                 // Save session
                 String username = etUsername.getText() != null ? etUsername.getText().toString() : "Admin";
-                org.zacsn.signal_dectect.util.SessionManager sessionManager = new org.zacsn.signal_dectect.util.SessionManager(this);
                 LoginResponse.Data loginData = viewModel.getLoginData();
                 if (loginData != null) {
                     sessionManager.createLoginSession(
@@ -78,7 +79,9 @@ public class LoginActivity extends AppCompatActivity {
                             loginData.getUserId(),
                             loginData.getNickname(),
                             loginData.getToken(),
-                            loginData.getValidUntil()
+                            loginData.getValidUntil(),
+                            loginData.getMachineCode(),
+                            loginData.getMaxMachineBindings()
                     );
                 } else {
                     sessionManager.createLoginSession(username);
@@ -90,5 +93,13 @@ public class LoginActivity extends AppCompatActivity {
                 finish();
             }
         });
+    }
+
+    private void showLoginErrorDialog(String message) {
+        new AlertDialog.Builder(this)
+                .setTitle("登录失败")
+                .setMessage(message)
+                .setPositiveButton("确定", null)
+                .show();
     }
 }

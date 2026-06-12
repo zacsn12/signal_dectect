@@ -8,7 +8,9 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import androidx.core.app.NotificationCompat;
 
 import org.zacsn.signal_dectect.MainActivity;
@@ -36,6 +38,11 @@ public class SignalScanService extends Service {
     
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL_ID = "signal_scan_channel";
+    private static final long STALE_PRUNE_INTERVAL_MS = 1_000L;
+    private static final long BLE_STALE_TIMEOUT_MS = 8_000L;
+    private static final long CLASSIC_BT_STALE_TIMEOUT_MS = 18_000L;
+    private static final long WIFI_STALE_TIMEOUT_MS = 25_000L;
+    private static final long CELLULAR_STALE_TIMEOUT_MS = 30_000L;
     
     @Inject
     BluetoothScanController bluetoothController;
@@ -48,8 +55,25 @@ public class SignalScanService extends Service {
     
     private final IBinder binder = new LocalBinder();
     private final List<SignalDevice> allDevices = new CopyOnWriteArrayList<>();
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private ScanType currentScanType;
     private ServiceCallback callback;
+    private boolean isScanning = false;
+    private final Runnable staleDevicePruneRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isScanning) {
+                return;
+            }
+
+            boolean changed = purgeStaleDevices(System.currentTimeMillis());
+            if (changed && callback != null) {
+                callback.onDeviceListUpdated(new ArrayList<>(allDevices));
+            }
+            updateNotification(allDevices.size());
+            handler.postDelayed(this, STALE_PRUNE_INTERVAL_MS);
+        }
+    };
     
     public interface ServiceCallback {
         void onDeviceFound(SignalDevice device);
@@ -90,14 +114,19 @@ public class SignalScanService extends Service {
      */
     public void startScan(ScanType scanType) {
         this.currentScanType = scanType;
+        this.isScanning = true;
         
         // Stop all scanners first
         bluetoothController.stopScan();
         wifiController.stopScan();
         cellularController.stopScan();
+        handler.removeCallbacks(staleDevicePruneRunnable);
         
         // Clear device list
         allDevices.clear();
+        if (callback != null) {
+            callback.onDeviceListUpdated(new ArrayList<>(allDevices));
+        }
         
         // Start only the requested scanners
         if (scanType.isBluetooth()) {
@@ -109,12 +138,15 @@ public class SignalScanService extends Service {
         if (scanType.isCellular()) {
             cellularController.startScan();
         }
+        handler.postDelayed(staleDevicePruneRunnable, STALE_PRUNE_INTERVAL_MS);
     }
     
     /**
      * Stop all scanning.
      */
     public void stopScan() {
+        isScanning = false;
+        handler.removeCallbacks(staleDevicePruneRunnable);
         bluetoothController.stopScan();
         wifiController.stopScan();
         cellularController.stopScan();
@@ -163,7 +195,7 @@ public class SignalScanService extends Service {
         });
     }
     
-    private void handleDeviceFound(SignalDevice device) {
+    void handleDeviceFound(SignalDevice device) {
         // Filter device based on current scan type
         if (currentScanType != null && !isDeviceMatchingScanType(device)) {
             return; // Skip devices that don't match current scan type
@@ -188,6 +220,42 @@ public class SignalScanService extends Service {
         if (callback != null) {
             callback.onDeviceFound(device);
             callback.onDeviceListUpdated(new ArrayList<>(allDevices));
+        }
+    }
+
+    boolean purgeStaleDevices(long now) {
+        List<SignalDevice> staleDevices = new ArrayList<>();
+        for (SignalDevice device : allDevices) {
+            long timeoutMs = getStaleTimeoutMs(device);
+            if (now - device.getLastSeen() > timeoutMs) {
+                staleDevices.add(device);
+            }
+        }
+
+        if (staleDevices.isEmpty()) {
+            return false;
+        }
+
+        allDevices.removeAll(staleDevices);
+        return true;
+    }
+
+    private long getStaleTimeoutMs(SignalDevice device) {
+        if (device == null || device.getDeviceType() == null) {
+            return BLE_STALE_TIMEOUT_MS;
+        }
+
+        switch (device.getDeviceType()) {
+            case BLUETOOTH_LE:
+                return BLE_STALE_TIMEOUT_MS;
+            case BLUETOOTH_CLASSIC:
+                return CLASSIC_BT_STALE_TIMEOUT_MS;
+            case WIFI:
+                return WIFI_STALE_TIMEOUT_MS;
+            case CELLULAR:
+                return CELLULAR_STALE_TIMEOUT_MS;
+            default:
+                return BLE_STALE_TIMEOUT_MS;
         }
     }
     

@@ -30,6 +30,7 @@ public class CellularScanController {
     private PhoneStateListener phoneStateListener;
     private boolean isScanning = false;
     private ScanListener scanListener;
+    private SignalDevice lastCellularDevice;
     
     public interface ScanListener {
         void onSignalUpdate(SignalDevice device);
@@ -67,6 +68,7 @@ public class CellularScanController {
         }
         
         isScanning = true;
+        lastCellularDevice = null;
         setupPhoneStateListener();
     }
     
@@ -76,24 +78,33 @@ public class CellularScanController {
             public void onSignalStrengthsChanged(SignalStrength signalStrength) {
                 super.onSignalStrengthsChanged(signalStrength);
                 
-                int dbm = getSignalStrengthDbm(signalStrength);
+                int dbm = SignalDeviceStabilizer.smoothSignalStrength(
+                    lastCellularDevice,
+                    getSignalStrengthDbm(signalStrength)
+                );
                 String operatorName = telephonyManager.getNetworkOperatorName();
                 String networkOperator = telephonyManager.getNetworkOperator();
+                long now = System.currentTimeMillis();
                 
                 SignalDevice device = new SignalDevice(
                     "CELLULAR_" + networkOperator,
                     operatorName,
                     DeviceType.CELLULAR,
+                    "未确认",
                     operatorName,
+                    operatorName == null || operatorName.isEmpty() ? "unknown" : "cellular_operator",
+                    operatorName == null || operatorName.isEmpty() ? 0 : 40,
                     dbm,
                     null,
                     0.0, // Distance not applicable for cellular
-                    System.currentTimeMillis(),
-                    System.currentTimeMillis(),
+                    now,
+                    now,
                     false,
                     false,
                     false
                 );
+                device = SignalDeviceStabilizer.merge(lastCellularDevice, device);
+                lastCellularDevice = device;
                 
                 if (scanListener != null) {
                     scanListener.onSignalUpdate(device);
@@ -128,7 +139,16 @@ public class CellularScanController {
             java.util.List<CellSignalStrength> cellSignalStrengths = 
                 signalStrength.getCellSignalStrengths();
             if (!cellSignalStrengths.isEmpty()) {
-                return cellSignalStrengths.get(0).getDbm();
+                int bestDbm = Integer.MIN_VALUE;
+                for (CellSignalStrength cellSignalStrength : cellSignalStrengths) {
+                    int dbm = cellSignalStrength.getDbm();
+                    if (dbm > -150 && dbm < 0 && dbm > bestDbm) {
+                        bestDbm = dbm;
+                    }
+                }
+                if (bestDbm != Integer.MIN_VALUE) {
+                    return bestDbm;
+                }
             }
         }
         

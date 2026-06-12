@@ -1,6 +1,5 @@
 package org.zacsn.signal_dectect.presentation.activity;
 
-import android.content.DialogInterface;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -12,9 +11,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import com.google.gson.Gson;
+import org.zacsn.signal_dectect.data.database.BlacklistDao;
+import org.zacsn.signal_dectect.data.database.BlacklistItemEntity;
 import org.zacsn.signal_dectect.data.database.ScanRecordDao;
 import org.zacsn.signal_dectect.data.database.ScanRecordEntity;
+import org.zacsn.signal_dectect.data.database.WatchlistDao;
+import org.zacsn.signal_dectect.data.database.WatchlistItemEntity;
+import org.zacsn.signal_dectect.data.database.WhitelistDao;
+import org.zacsn.signal_dectect.data.database.WhitelistItemEntity;
 import org.zacsn.signal_dectect.databinding.ActivitySignalInspectBinding;
+import org.zacsn.signal_dectect.domain.model.ManufacturerVerdict;
 import org.zacsn.signal_dectect.domain.model.ScanType;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
 import org.zacsn.signal_dectect.presentation.adapter.SignalDeviceAdapter;
@@ -34,15 +40,24 @@ public class SignalInspectActivity extends AppCompatActivity {
     private android.os.Handler handler;
     private boolean isScanning = false;
     private ScanType scanType = ScanType.ALL;
-    private boolean hasAppleClassicBluetooth = false;
-    private boolean hasShownAppleLeInfo = false;
-    private java.util.Set<String> alertedAppleDevices = new java.util.HashSet<>();
-    private java.util.List<SignalDevice> appleLeDevices = new java.util.ArrayList<>();
+    private boolean hasActiveConfiguredAlert = false;
+    private java.util.Set<String> alertedConfiguredDevices = new java.util.HashSet<>();
+    private java.util.Set<String> highlightedTargetDevices = new java.util.HashSet<>();
+    private java.util.Set<String> watchlistKeywords = new java.util.HashSet<>();
+    private java.util.Set<String> whitelistMacs = new java.util.HashSet<>();
+    private java.util.Set<String> blacklistMacs = new java.util.HashSet<>();
+    private java.util.List<SignalDevice> latestVisibleDevices = new java.util.ArrayList<>();
     private java.util.List<SignalDevice> currentDevices = new java.util.ArrayList<>();
     private long scanStartTime = 0;
     
     @Inject
     ScanRecordDao scanRecordDao;
+    @Inject
+    WatchlistDao watchlistDao;
+    @Inject
+    WhitelistDao whitelistDao;
+    @Inject
+    BlacklistDao blacklistDao;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -174,6 +189,7 @@ public class SignalInspectActivity extends AppCompatActivity {
         
         setupRecyclerView();
         setupFab();
+        observeAlertConfig();
         observeViewModel();
     }
 
@@ -220,6 +236,11 @@ public class SignalInspectActivity extends AppCompatActivity {
         intent.putExtra("DEVICE_NAME", device.getDeviceName());
         intent.putExtra("DEVICE_TYPE", device.getDeviceType().name());
         intent.putExtra("MANUFACTURER", device.getManufacturer());
+        intent.putExtra("CANDIDATE_MANUFACTURER", device.getCandidateManufacturer());
+        intent.putExtra("MANUFACTURER_SOURCE", device.getManufacturerSource());
+        intent.putExtra("MANUFACTURER_CONFIDENCE", device.getManufacturerConfidence());
+        intent.putExtra("MANUFACTURER_VERDICT", device.getManufacturerVerdict().name());
+        intent.putExtra("MANUFACTURER_EVIDENCE", device.getManufacturerEvidence());
         intent.putExtra("SIGNAL_STRENGTH", device.getSignalStrength());
         intent.putExtra("FREQUENCY", device.getFrequency() != null ? device.getFrequency() : 0);
         intent.putExtra("DISTANCE", device.getDistance());
@@ -235,11 +256,10 @@ public class SignalInspectActivity extends AppCompatActivity {
                 soundEffectManager.stopAllSounds();
                 viewModel.stopScan();
             } else {
-                // Reset Apple device flags when starting new scan
-                hasAppleClassicBluetooth = false;
-                hasShownAppleLeInfo = false;
-                alertedAppleDevices.clear();
-                appleLeDevices.clear();
+                hasActiveConfiguredAlert = false;
+                alertedConfiguredDevices.clear();
+                highlightedTargetDevices.clear();
+                adapter.setHighlightedMacs(highlightedTargetDevices);
                 boolean soundStarted = soundEffectManager.startNormalScanSound();
                 if (!soundStarted) {
                     android.widget.Toast.makeText(this, "巡检音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
@@ -292,21 +312,10 @@ public class SignalInspectActivity extends AppCompatActivity {
         viewModel.getDevices().observe(this, devices -> {
             // Store current devices for saving
             currentDevices = new java.util.ArrayList<>(devices);
-            
-            // Sort devices: Classic Bluetooth first, then BLE, then others
-            java.util.List<SignalDevice> sortedDevices = new java.util.ArrayList<>(devices);
-            sortedDevices.sort((d1, d2) -> {
-                int priority1 = getDeviceTypePriority(d1.getDeviceType());
-                int priority2 = getDeviceTypePriority(d2.getDeviceType());
-                return Integer.compare(priority1, priority2);
-            });
-            
-            adapter.submitList(sortedDevices);
-            binding.tvDeviceCount.setText("设备数: " + sortedDevices.size());
-            binding.tvLargeDeviceCount.setText(String.valueOf(sortedDevices.size()));
-            
-            // Check for Apple devices and switch to alert sound if found
-            checkForAppleDevices(sortedDevices);
+            latestVisibleDevices = new java.util.ArrayList<>(devices);
+            java.util.List<SignalDevice> sortedDevices = refreshDeviceList();
+
+            checkConfiguredAlerts(sortedDevices);
         });
         
         viewModel.getScanDuration().observe(this, duration -> {
@@ -337,217 +346,233 @@ public class SignalInspectActivity extends AppCompatActivity {
         }
     }
     
-    /**
-     * Check if any Apple devices are in the device list.
-     * - Classic Bluetooth Apple devices: Switch to alert sound and show urgent dialog
-     * - BLE Apple devices: Collect and show info dialog (no sound change)
-     */
-    private void checkForAppleDevices(java.util.List<SignalDevice> devices) {
+    private void observeAlertConfig() {
+        watchlistDao.getAll().observe(this, entities -> {
+            java.util.Set<String> nextKeywords = new java.util.HashSet<>();
+            for (WatchlistItemEntity entity : entities) {
+                addKeyword(nextKeywords, entity.getMacAddress());
+                addKeyword(nextKeywords, entity.getManufacturer());
+                addKeyword(nextKeywords, entity.getDeviceName());
+            }
+            watchlistKeywords = nextKeywords;
+        });
+
+        whitelistDao.getAll().observe(this, entities -> {
+            java.util.Set<String> nextMacs = new java.util.HashSet<>();
+            for (WhitelistItemEntity entity : entities) {
+                addMac(nextMacs, entity.getMacAddress());
+            }
+            whitelistMacs = nextMacs;
+        });
+
+        blacklistDao.getAll().observe(this, entities -> {
+            java.util.Set<String> nextMacs = new java.util.HashSet<>();
+            for (BlacklistItemEntity entity : entities) {
+                addMac(nextMacs, entity.getMacAddress());
+            }
+            blacklistMacs = nextMacs;
+        });
+    }
+
+    private java.util.List<SignalDevice> refreshDeviceList() {
+        java.util.List<SignalDevice> sortedDevices = new java.util.ArrayList<>(latestVisibleDevices);
+        sortedDevices.sort((d1, d2) -> {
+            int targetPriority1 = highlightedTargetDevices.contains(normalizeMac(d1.getMacAddress())) ? 0 : 1;
+            int targetPriority2 = highlightedTargetDevices.contains(normalizeMac(d2.getMacAddress())) ? 0 : 1;
+            if (targetPriority1 != targetPriority2) {
+                return Integer.compare(targetPriority1, targetPriority2);
+            }
+
+            int typePriority1 = getDeviceTypePriority(d1.getDeviceType());
+            int typePriority2 = getDeviceTypePriority(d2.getDeviceType());
+            if (typePriority1 != typePriority2) {
+                return Integer.compare(typePriority1, typePriority2);
+            }
+
+            return Long.compare(d2.getLastSeen(), d1.getLastSeen());
+        });
+
+        adapter.submitList(sortedDevices);
+        binding.tvDeviceCount.setText("设备数: " + sortedDevices.size());
+        binding.tvLargeDeviceCount.setText(String.valueOf(sortedDevices.size()));
+        return sortedDevices;
+    }
+
+    private void checkConfiguredAlerts(java.util.List<SignalDevice> devices) {
         if (!isScanning) {
-            return; // Not scanning
+            return;
         }
-        
-        // Track newly found BLE devices for batch notification
-        boolean foundNewAppleLe = false;
-        
+
         for (SignalDevice device : devices) {
-            String manufacturer = device.getManufacturer();
-            String macAddress = device.getMacAddress();
-            
-            if (manufacturer != null && manufacturer.toLowerCase().contains("apple")) {
-                
-                // Skip if already alerted for this device
-                if (alertedAppleDevices.contains(macAddress)) {
-                    continue;
-                }
-                
-                // Check device type
-                if (device.getDeviceType() == org.zacsn.signal_dectect.domain.model.DeviceType.BLUETOOTH_CLASSIC) {
-                    // Classic Bluetooth Apple device - HIGH PRIORITY
-                    if (!hasAppleClassicBluetooth) {
-                        hasAppleClassicBluetooth = true;
-                        boolean soundStarted = soundEffectManager.switchToAlertSound();
-                        if (!soundStarted) {
-                            android.widget.Toast.makeText(this, "告警音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                    
-                    alertedAppleDevices.add(macAddress);
-                    android.util.Log.w("SignalInspectActivity", 
-                            "Apple Classic Bluetooth device detected! MAC: " + macAddress);
-                    
-                    // Show urgent alert dialog immediately
-                    showAppleClassicBluetoothAlert(device);
-                    
-                } else if (device.getDeviceType() == org.zacsn.signal_dectect.domain.model.DeviceType.BLUETOOTH_LE) {
-                    // BLE Apple device - LOW PRIORITY
-                    boolean isNewDevice = true;
-                    for (SignalDevice existingDevice : appleLeDevices) {
-                        if (existingDevice.getMacAddress().equals(macAddress)) {
-                            isNewDevice = false;
-                            break;
-                        }
-                    }
-                    
-                    if (isNewDevice) {
-                        appleLeDevices.add(device);
-                        alertedAppleDevices.add(macAddress);
-                        foundNewAppleLe = true;
-                        android.util.Log.i("SignalInspectActivity", 
-                                "Apple BLE device detected: " + device.getDeviceName() + " (" + macAddress + ")");
-                    }
+            String macAddress = normalizeMac(device.getMacAddress());
+            if (macAddress.isEmpty() || whitelistMacs.contains(macAddress)) {
+                continue;
+            }
+
+            String alertType = null;
+            String alertReason = null;
+            if (blacklistMacs.contains(macAddress)) {
+                alertType = "黑名单告警";
+                alertReason = "该设备 MAC 地址命中黑名单";
+            } else {
+                String matchedKeyword = findWatchlistMatch(device);
+                if (matchedKeyword != null) {
+                    alertType = "巡检机型告警";
+                    alertReason = "设备信息命中巡检机型: " + matchedKeyword;
                 }
             }
-        }
-        
-        // Show BLE devices info if new devices found (only if no classic BT alert is active)
-        if (foundNewAppleLe && !hasAppleClassicBluetooth && !hasShownAppleLeInfo) {
-            hasShownAppleLeInfo = true;
-            // Delay showing BLE info to allow more devices to be collected
-            handler.postDelayed(() -> {
-                if (!appleLeDevices.isEmpty()) {
-                    showAppleLeDevicesInfo();
+
+            if (alertType == null || alertedConfiguredDevices.contains(alertType + ":" + macAddress)) {
+                continue;
+            }
+
+            alertedConfiguredDevices.add(alertType + ":" + macAddress);
+            highlightedTargetDevices.add(macAddress);
+            adapter.setHighlightedMacs(highlightedTargetDevices);
+            refreshDeviceList();
+            if (!hasActiveConfiguredAlert) {
+                hasActiveConfiguredAlert = true;
+                boolean soundStarted = soundEffectManager.switchToAlertSound();
+                if (!soundStarted) {
+                    android.widget.Toast.makeText(this, "告警音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
                 }
-            }, 2000); // Wait 2 seconds to collect more BLE devices
+            }
+            showConfiguredAlert(device, alertType, alertReason);
         }
     }
-    
-    /**
-     * Show urgent alert dialog for Apple Classic Bluetooth device.
-     */
-    private void showAppleClassicBluetoothAlert(SignalDevice device) {
+
+    private String findWatchlistMatch(SignalDevice device) {
+        String manufacturer = safeLower(device.getManufacturer()).trim();
+        String macAddress = safeLower(device.getMacAddress()).trim();
+
+        for (String keyword : watchlistKeywords) {
+            if (keyword.equals(macAddress) || keyword.equals(normalizeMac(device.getMacAddress()).toLowerCase(java.util.Locale.US))) {
+                return keyword + " (MAC精确命中)";
+            }
+
+            if (isManufacturerConfirmed(device) && manufacturer.contains(keyword)) {
+                return keyword + " (厂商已确认)";
+            }
+        }
+        return null;
+    }
+
+    private boolean isManufacturerConfirmed(SignalDevice device) {
+        return device.getManufacturerVerdict() == ManufacturerVerdict.CONFIRMED;
+    }
+
+    private void showConfiguredAlert(SignalDevice device, String alertType, String alertReason) {
         View dialogView = getLayoutInflater().inflate(org.zacsn.signal_dectect.R.layout.dialog_apple_alert, null);
         TextView tvTitle = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_dialog_title);
         TextView tvMessage = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_dialog_message);
         Button btnNegative = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_dialog_negative);
         Button btnPositive = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_dialog_positive);
-        
-        tvTitle.setText("警告：检测到 Apple 经典设备");
-        
-        // Style the header container to red warning color for classic bluetooth
+
+        tvTitle.setText(alertType);
+
         View headerView = dialogView.findViewById(org.zacsn.signal_dectect.R.id.dialog_header);
-        headerView.setBackgroundColor(android.graphics.Color.parseColor("#991B1B")); // Red warning color
-        
-        String info = "发现 Apple 经典蓝牙设备！\n\n" +
-                      "⚠️ 这可能是正在广播或连接的 iPhone、iPad 或 Mac 终端。\n\n" +
-                      "• 设备名称: " + device.getDeviceName() + "\n" +
-                      "• MAC 地址: " + device.getMacAddress() + "\n" +
-                      "• 信号强度: " + device.getSignalStrength() + " dBm\n" +
-                      "• 芯片厂商: " + device.getManufacturer() + "\n" +
-                      "• 设备类型: 经典蓝牙";
+        headerView.setBackgroundColor(android.graphics.Color.parseColor("#991B1B"));
+
+        String info = alertReason + "\n\n"
+                + "设备名称: " + safeText(device.getDeviceName()) + "\n"
+                + "MAC 地址: " + safeText(device.getMacAddress()) + "\n"
+                + "信号强度: " + device.getSignalStrength() + " dBm\n"
+                + "确认厂商: " + safeText(device.getManufacturer()) + "\n"
+                + "候选线索: " + safeText(device.getCandidateManufacturer()) + "\n"
+                + "判定等级: " + device.getManufacturerVerdict().name() + "\n"
+                + "线索来源: " + safeText(device.getManufacturerSource()) + "\n"
+                + "证据摘要: " + safeText(device.getManufacturerEvidence()) + "\n"
+                + "设备类型: " + device.getDeviceType().name();
         tvMessage.setText(info);
-        
-        btnNegative.setText("继续扫描");
+
+        btnNegative.setText("确认");
         btnPositive.setText("查看详情");
-        
+
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setView(dialogView)
                 .setCancelable(true)
                 .create();
-                
-        btnNegative.setOnClickListener(v -> dialog.dismiss());
+
+        btnNegative.setOnClickListener(v -> {
+            dialog.dismiss();
+            restoreNormalScanSoundAfterAlert();
+        });
         btnPositive.setOnClickListener(v -> {
             dialog.dismiss();
+            restoreNormalScanSoundAfterAlert();
             openDeviceDetail(device);
         });
-        
+
         dialog.show();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
-            android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
-            getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-            int displayWidth = displayMetrics.widthPixels;
-            int displayHeight = displayMetrics.heightPixels;
-            
-            android.view.WindowManager.LayoutParams layoutParams = new android.view.WindowManager.LayoutParams();
-            layoutParams.copyFrom(dialog.getWindow().getAttributes());
-            layoutParams.width = (int) (displayWidth * 0.85);
-            dialog.getWindow().setAttributes(layoutParams);
-            
-            View dialogScroll = dialogView.findViewById(org.zacsn.signal_dectect.R.id.dialog_scroll_view);
-            if (dialogScroll != null) {
-                int maxScrollHeight = (int) (displayHeight * 0.40);
-                dialogScroll.post(() -> {
-                    if (dialogScroll.getMeasuredHeight() > maxScrollHeight) {
-                        android.view.ViewGroup.LayoutParams lp = dialogScroll.getLayoutParams();
-                        lp.height = maxScrollHeight;
-                        dialogScroll.setLayoutParams(lp);
-                    }
-                });
+        resizeAlertDialog(dialog, dialogView);
+    }
+
+    private void restoreNormalScanSoundAfterAlert() {
+        hasActiveConfiguredAlert = false;
+        if (isScanning && soundEffectManager != null && soundEffectManager.isAlertMode()) {
+            boolean soundStarted = soundEffectManager.startNormalScanSound();
+            if (!soundStarted) {
+                android.widget.Toast.makeText(this, "巡检音效恢复失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
             }
         }
     }
-    
-    /**
-     * Show info dialog for Apple BLE devices.
-     */
-    private void showAppleLeDevicesInfo() {
-        View dialogView = getLayoutInflater().inflate(org.zacsn.signal_dectect.R.layout.dialog_apple_alert, null);
-        TextView tvTitle = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_dialog_title);
-        TextView tvMessage = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_dialog_message);
-        Button btnNegative = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_dialog_negative);
-        Button btnPositive = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_dialog_positive);
-        
-        tvTitle.setText("感知：检测到 Apple BLE 设备");
-        
-        // Keep header deep police blue (#0A1E36) for info
-        View headerView = dialogView.findViewById(org.zacsn.signal_dectect.R.id.dialog_header);
-        headerView.setBackgroundColor(android.graphics.Color.parseColor("#0A1E36"));
-        
-        StringBuilder message = new StringBuilder();
-        message.append("检测到 ").append(appleLeDevices.size()).append(" 个 Apple 低功耗蓝牙终端。\n\n");
-        message.append("ℹ️ 这些设备可能是周边的 AirPods 耳机、Apple Watch 手表等。\n\n");
-        message.append("探测列表：\n");
-        
-        for (int i = 0; i < appleLeDevices.size() && i < 5; i++) {
-            SignalDevice device = appleLeDevices.get(i);
-            message.append("\n").append(i + 1).append(". ")
-                    .append(device.getDeviceName())
-                    .append("\n   MAC: ").append(device.getMacAddress())
-                    .append("\n   信号: ").append(device.getSignalStrength()).append(" dBm");
+
+    private void resizeAlertDialog(AlertDialog dialog, View dialogView) {
+        if (dialog.getWindow() == null) {
+            return;
         }
-        
-        if (appleLeDevices.size() > 5) {
-            message.append("\n\n... 还有 ").append(appleLeDevices.size() - 5).append(" 个设备");
+
+        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+        android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int displayWidth = displayMetrics.widthPixels;
+        int displayHeight = displayMetrics.heightPixels;
+
+        android.view.WindowManager.LayoutParams layoutParams = new android.view.WindowManager.LayoutParams();
+        layoutParams.copyFrom(dialog.getWindow().getAttributes());
+        layoutParams.width = (int) (displayWidth * 0.85);
+        dialog.getWindow().setAttributes(layoutParams);
+
+        View dialogScroll = dialogView.findViewById(org.zacsn.signal_dectect.R.id.dialog_scroll_view);
+        if (dialogScroll != null) {
+            int maxScrollHeight = (int) (displayHeight * 0.40);
+            dialogScroll.post(() -> {
+                if (dialogScroll.getMeasuredHeight() > maxScrollHeight) {
+                    android.view.ViewGroup.LayoutParams lp = dialogScroll.getLayoutParams();
+                    lp.height = maxScrollHeight;
+                    dialogScroll.setLayoutParams(lp);
+                }
+            });
         }
-        
-        tvMessage.setText(message.toString());
-        
-        btnNegative.setVisibility(View.GONE); // Only need one button for simple alert
-        btnPositive.setText("知道了");
-        
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setView(dialogView)
-                .setCancelable(true)
-                .create();
-                
-        btnPositive.setOnClickListener(v -> dialog.dismiss());
-        
-        dialog.show();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
-            android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
-            getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-            int displayWidth = displayMetrics.widthPixels;
-            int displayHeight = displayMetrics.heightPixels;
-            
-            android.view.WindowManager.LayoutParams layoutParams = new android.view.WindowManager.LayoutParams();
-            layoutParams.copyFrom(dialog.getWindow().getAttributes());
-            layoutParams.width = (int) (displayWidth * 0.85);
-            dialog.getWindow().setAttributes(layoutParams);
-            
-            View dialogScroll = dialogView.findViewById(org.zacsn.signal_dectect.R.id.dialog_scroll_view);
-            if (dialogScroll != null) {
-                int maxScrollHeight = (int) (displayHeight * 0.40);
-                dialogScroll.post(() -> {
-                    if (dialogScroll.getMeasuredHeight() > maxScrollHeight) {
-                        android.view.ViewGroup.LayoutParams lp = dialogScroll.getLayoutParams();
-                        lp.height = maxScrollHeight;
-                        dialogScroll.setLayoutParams(lp);
-                    }
-                });
-            }
+    }
+
+    private void addKeyword(java.util.Set<String> keywords, String value) {
+        String normalized = safeLower(value).trim();
+        if (!normalized.isEmpty()) {
+            keywords.add(normalized);
         }
+    }
+
+    private void addMac(java.util.Set<String> macs, String value) {
+        String normalized = normalizeMac(value);
+        if (!normalized.isEmpty()) {
+            macs.add(normalized);
+        }
+    }
+
+    private String normalizeMac(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replace("-", ":").toUpperCase(java.util.Locale.US);
+    }
+
+    private String safeLower(String value) {
+        return value == null ? "" : value.toLowerCase(java.util.Locale.US);
+    }
+
+    private String safeText(String value) {
+        return value == null || value.trim().isEmpty() ? "未知" : value;
     }
     
     @Override
@@ -639,6 +664,7 @@ public class SignalInspectActivity extends AppCompatActivity {
                 deviceCount,
                 devicesJson
         );
+        record.setName(recordName);
         
         // Save in background thread
         new Thread(() -> {

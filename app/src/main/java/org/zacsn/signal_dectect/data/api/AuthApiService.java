@@ -12,4 +12,10 @@ public interface AuthApiService {
 
     @GET("/api/auth/me")
     Call<LoginResponse> currentUser(@Header("Authorization") String authorization);
+
+    @POST("/api/auth/change-password")
+    Call<LoginResponse> changePassword(
+            @Header("Authorization") String authorization,
+            @Body ChangePasswordRequest request
+    );
 }

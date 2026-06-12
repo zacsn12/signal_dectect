@@ -317,26 +317,45 @@
 
                 <!-- Row: Manufacturer -->
                 <LinearLayout
+                    android:id="@+id/layout_manufacturer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="芯片厂商"
+                        android:text="厂商识别"
                         android:textColor="#64748B"
                         android:textSize="14sp"
                         android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:text="详情"
+                        android:textColor="#94A3B8"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium" />
+
                     <Space
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1" />
                     <TextView
                         android:id="@+id/tv_manufacturer"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:gravity="end"
+                        android:maxLines="1"
                         android:text="未知"
                         android:textColor="?attr/colorOnSurface"
                         android:textSize="14sp"

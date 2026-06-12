@@ -12,10 +12,14 @@ public class SessionManager {
     private static final String KEY_NICKNAME = "nickname";
     private static final String KEY_TOKEN = "token";
     private static final String KEY_VALID_UNTIL = "valid_until";
+    private static final String KEY_MACHINE_CODE = "machine_code";
+    private static final String KEY_MAX_MACHINE_BINDINGS = "max_machine_bindings";
 
+    private final Context context;
     private final SharedPreferences prefs;
 
     public SessionManager(Context context) {
+        this.context = context.getApplicationContext();
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
     }
 
@@ -23,10 +27,19 @@ public class SessionManager {
         prefs.edit()
              .putBoolean(KEY_IS_LOGGED_IN, true)
              .putString(KEY_USERNAME, username)
+             .putString(KEY_MACHINE_CODE, getMachineCode())
              .apply();
     }
 
     public void createLoginSession(String username, String userId, String nickname, String token, String validUntil) {
+        createLoginSession(username, userId, nickname, token, validUntil, getMachineCode());
+    }
+
+    public void createLoginSession(String username, String userId, String nickname, String token, String validUntil, String machineCode) {
+        createLoginSession(username, userId, nickname, token, validUntil, machineCode, 1);
+    }
+
+    public void createLoginSession(String username, String userId, String nickname, String token, String validUntil, String machineCode, int maxMachineBindings) {
         prefs.edit()
              .putBoolean(KEY_IS_LOGGED_IN, true)
              .putString(KEY_USERNAME, username)
@@ -34,14 +47,26 @@ public class SessionManager {
              .putString(KEY_NICKNAME, nickname)
              .putString(KEY_TOKEN, token)
              .putString(KEY_VALID_UNTIL, validUntil)
+             .putString(KEY_MACHINE_CODE, normalizeMachineCode(machineCode))
+             .putInt(KEY_MAX_MACHINE_BINDINGS, Math.max(1, maxMachineBindings))
              .apply();
     }
 
     public void updateAuthorizationInfo(String userId, String nickname, String validUntil) {
+        updateAuthorizationInfo(userId, nickname, validUntil, getMachineCode());
+    }
+
+    public void updateAuthorizationInfo(String userId, String nickname, String validUntil, String machineCode) {
+        updateAuthorizationInfo(userId, nickname, validUntil, machineCode, getMaxMachineBindings());
+    }
+
+    public void updateAuthorizationInfo(String userId, String nickname, String validUntil, String machineCode, int maxMachineBindings) {
         prefs.edit()
              .putString(KEY_USER_ID, userId)
              .putString(KEY_NICKNAME, nickname)
              .putString(KEY_VALID_UNTIL, validUntil)
+             .putString(KEY_MACHINE_CODE, normalizeMachineCode(machineCode))
+             .putInt(KEY_MAX_MACHINE_BINDINGS, Math.max(1, maxMachineBindings))
              .apply();
     }
 
@@ -74,12 +99,21 @@ public class SessionManager {
     }
 
     public String getSerialNumber() {
-        String sn = prefs.getString("serial_number", null);
-        if (sn == null) {
-            sn = "SN-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            prefs.edit().putString("serial_number", sn).apply();
+        return getMachineCode();
+    }
+
+    public String getMachineCode() {
+        String machineCode = MachineCodeUtils.getMachineCode(context);
+        prefs.edit().putString(KEY_MACHINE_CODE, machineCode).apply();
+        return machineCode;
+    }
+
+    public String getBoundMachineCode() {
+        String machineCode = prefs.getString(KEY_MACHINE_CODE, "");
+        if (machineCode == null || machineCode.trim().isEmpty()) {
+            return getMachineCode();
         }
-        return sn;
+        return machineCode;
     }
 
     public String getValidUntil() {
@@ -91,7 +125,18 @@ public class SessionManager {
         return validUntil;
     }
 
+    public int getMaxMachineBindings() {
+        return prefs.getInt(KEY_MAX_MACHINE_BINDINGS, 1);
+    }
+
     public void logout() {
         prefs.edit().putBoolean(KEY_IS_LOGGED_IN, false).apply();
+    }
+
+    private String normalizeMachineCode(String machineCode) {
+        if (machineCode == null || machineCode.trim().isEmpty()) {
+            return getMachineCode();
+        }
+        return machineCode.trim().toUpperCase(java.util.Locale.US);
     }
 }

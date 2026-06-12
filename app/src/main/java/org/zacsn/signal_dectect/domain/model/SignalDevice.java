@@ -22,6 +22,21 @@ public class SignalDevice {
     
     @SerializedName("manufacturer")
     private final String manufacturer;
+
+    @SerializedName("candidateManufacturer")
+    private final String candidateManufacturer;
+
+    @SerializedName("manufacturerSource")
+    private final String manufacturerSource;
+
+    @SerializedName("manufacturerConfidence")
+    private final int manufacturerConfidence;
+
+    @SerializedName("manufacturerVerdict")
+    private final ManufacturerVerdict manufacturerVerdict;
+
+    @SerializedName("manufacturerEvidence")
+    private final String manufacturerEvidence;
     
     @SerializedName("signalStrength")
     private final int signalStrength; // in dBm
@@ -57,6 +72,11 @@ public class SignalDevice {
         this.deviceName = "";
         this.deviceType = DeviceType.BLUETOOTH_CLASSIC;
         this.manufacturer = "";
+        this.candidateManufacturer = "";
+        this.manufacturerSource = "unknown";
+        this.manufacturerConfidence = 0;
+        this.manufacturerVerdict = ManufacturerVerdict.UNKNOWN;
+        this.manufacturerEvidence = "";
         this.signalStrength = 0;
         this.frequency = null;
         this.distance = 0.0;
@@ -71,10 +91,52 @@ public class SignalDevice {
                        String manufacturer, int signalStrength, Integer frequency,
                        double distance, long firstSeen, long lastSeen,
                        boolean isFocused, boolean isBlacklisted, boolean isWhitelisted) {
+        this(macAddress, deviceName, deviceType, manufacturer, "unknown", 0,
+                signalStrength, frequency, distance, firstSeen, lastSeen,
+                isFocused, isBlacklisted, isWhitelisted);
+    }
+
+    public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
+                       String manufacturer, String manufacturerSource, int manufacturerConfidence,
+                       int signalStrength, Integer frequency, double distance,
+                       long firstSeen, long lastSeen,
+                       boolean isFocused, boolean isBlacklisted, boolean isWhitelisted) {
+        this(macAddress, deviceName, deviceType, manufacturer, manufacturer,
+                manufacturerSource, manufacturerConfidence, signalStrength, frequency,
+                distance, firstSeen, lastSeen, isFocused, isBlacklisted, isWhitelisted);
+    }
+
+    public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
+                       String manufacturer, String candidateManufacturer,
+                       String manufacturerSource, int manufacturerConfidence,
+                       int signalStrength, Integer frequency, double distance,
+                       long firstSeen, long lastSeen,
+                       boolean isFocused, boolean isBlacklisted, boolean isWhitelisted) {
+        this(macAddress, deviceName, deviceType, manufacturer, candidateManufacturer,
+                manufacturerSource, manufacturerConfidence,
+                inferVerdict(manufacturerSource, manufacturerConfidence), "",
+                signalStrength, frequency, distance, firstSeen, lastSeen,
+                isFocused, isBlacklisted, isWhitelisted);
+    }
+
+    public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
+                       String manufacturer, String candidateManufacturer,
+                       String manufacturerSource, int manufacturerConfidence,
+                       ManufacturerVerdict manufacturerVerdict, String manufacturerEvidence,
+                       int signalStrength, Integer frequency, double distance,
+                       long firstSeen, long lastSeen,
+                       boolean isFocused, boolean isBlacklisted, boolean isWhitelisted) {
         this.macAddress = macAddress;
         this.deviceName = deviceName;
         this.deviceType = deviceType;
         this.manufacturer = manufacturer;
+        this.candidateManufacturer = candidateManufacturer;
+        this.manufacturerSource = manufacturerSource;
+        this.manufacturerConfidence = manufacturerConfidence;
+        this.manufacturerVerdict = manufacturerVerdict != null
+                ? manufacturerVerdict
+                : inferVerdict(manufacturerSource, manufacturerConfidence);
+        this.manufacturerEvidence = manufacturerEvidence != null ? manufacturerEvidence : "";
         this.signalStrength = signalStrength;
         this.frequency = frequency;
         this.distance = distance;
@@ -114,6 +176,28 @@ public class SignalDevice {
 
     public String getManufacturer() {
         return manufacturer;
+    }
+
+    public String getCandidateManufacturer() {
+        return candidateManufacturer;
+    }
+
+    public String getManufacturerSource() {
+        return manufacturerSource;
+    }
+
+    public int getManufacturerConfidence() {
+        return manufacturerConfidence;
+    }
+
+    public ManufacturerVerdict getManufacturerVerdict() {
+        return manufacturerVerdict != null
+                ? manufacturerVerdict
+                : inferVerdict(manufacturerSource, manufacturerConfidence);
+    }
+
+    public String getManufacturerEvidence() {
+        return manufacturerEvidence;
     }
 
     public int getSignalStrength() {
@@ -164,13 +248,20 @@ public class SignalDevice {
                 Objects.equals(deviceName, that.deviceName) &&
                 deviceType == that.deviceType &&
                 Objects.equals(manufacturer, that.manufacturer) &&
+                Objects.equals(candidateManufacturer, that.candidateManufacturer) &&
+                Objects.equals(manufacturerSource, that.manufacturerSource) &&
+                manufacturerConfidence == that.manufacturerConfidence &&
+                getManufacturerVerdict() == that.getManufacturerVerdict() &&
+                Objects.equals(manufacturerEvidence, that.manufacturerEvidence) &&
                 Objects.equals(frequency, that.frequency);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(macAddress, deviceName, deviceType, manufacturer, 
-                signalStrength, frequency, distance, firstSeen, lastSeen, 
+                candidateManufacturer, manufacturerSource, manufacturerConfidence,
+                getManufacturerVerdict(), manufacturerEvidence, signalStrength,
+                frequency, distance, firstSeen, lastSeen,
                 isFocused, isBlacklisted, isWhitelisted);
     }
 
@@ -181,6 +272,11 @@ public class SignalDevice {
                 ", deviceName='" + deviceName + '\'' +
                 ", deviceType=" + deviceType +
                 ", manufacturer='" + manufacturer + '\'' +
+                ", candidateManufacturer='" + candidateManufacturer + '\'' +
+                ", manufacturerSource='" + manufacturerSource + '\'' +
+                ", manufacturerConfidence=" + manufacturerConfidence +
+                ", manufacturerVerdict=" + getManufacturerVerdict() +
+                ", manufacturerEvidence='" + manufacturerEvidence + '\'' +
                 ", signalStrength=" + signalStrength +
                 ", frequency=" + frequency +
                 ", distance=" + distance +
@@ -200,6 +296,11 @@ public class SignalDevice {
         private String deviceName;
         private DeviceType deviceType;
         private String manufacturer;
+        private String candidateManufacturer;
+        private String manufacturerSource = "unknown";
+        private int manufacturerConfidence = 0;
+        private ManufacturerVerdict manufacturerVerdict;
+        private String manufacturerEvidence = "";
         private int signalStrength;
         private Integer frequency;
         private double distance;
@@ -226,6 +327,31 @@ public class SignalDevice {
 
         public Builder manufacturer(String manufacturer) {
             this.manufacturer = manufacturer;
+            return this;
+        }
+
+        public Builder candidateManufacturer(String candidateManufacturer) {
+            this.candidateManufacturer = candidateManufacturer;
+            return this;
+        }
+
+        public Builder manufacturerSource(String manufacturerSource) {
+            this.manufacturerSource = manufacturerSource;
+            return this;
+        }
+
+        public Builder manufacturerConfidence(int manufacturerConfidence) {
+            this.manufacturerConfidence = manufacturerConfidence;
+            return this;
+        }
+
+        public Builder manufacturerVerdict(ManufacturerVerdict manufacturerVerdict) {
+            this.manufacturerVerdict = manufacturerVerdict;
+            return this;
+        }
+
+        public Builder manufacturerEvidence(String manufacturerEvidence) {
+            this.manufacturerEvidence = manufacturerEvidence;
             return this;
         }
 
@@ -271,8 +397,25 @@ public class SignalDevice {
 
         public SignalDevice build() {
             return new SignalDevice(macAddress, deviceName, deviceType, manufacturer,
-                    signalStrength, frequency, distance, firstSeen, lastSeen,
+                    candidateManufacturer, manufacturerSource, manufacturerConfidence,
+                    manufacturerVerdict, manufacturerEvidence, signalStrength,
+                    frequency, distance, firstSeen, lastSeen,
                     isFocused, isBlacklisted, isWhitelisted);
         }
+    }
+
+    private static ManufacturerVerdict inferVerdict(String source, int confidence) {
+        if (confidence >= 95 || "gatt_device_info".equals(source) || "gatt_pnp_id".equals(source)
+                || "gatt_device_info+pnp_id".equals(source)
+                || "wifi_bssid_ssid_match".equals(source)) {
+            return ManufacturerVerdict.CONFIRMED;
+        }
+        if (confidence >= 80) {
+            return ManufacturerVerdict.LIKELY;
+        }
+        if (confidence > 0) {
+            return ManufacturerVerdict.POSSIBLE;
+        }
+        return ManufacturerVerdict.UNKNOWN;
     }
 }

@@ -41,6 +41,10 @@ public class PermissionManager {
      */
     public String[] getRequiredPermissions(ScanType scanType) {
         Set<String> permissions = new HashSet<>();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Android 12+ (API 31+)

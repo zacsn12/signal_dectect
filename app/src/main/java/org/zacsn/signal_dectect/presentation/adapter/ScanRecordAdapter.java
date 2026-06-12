@@ -199,6 +199,10 @@ public class ScanRecordAdapter extends ListAdapter<ScanRecordEntity, ScanRecordA
                 return "WiFi巡检";
             } else if (scanType == 3) {
                 return "蓝牙+WiFi";
+            } else if (scanType == 4) {
+                return "蜂窝巡检";
+            } else if (scanType == 7) {
+                return "全部扫描";
             } else {
                 return "扫描记录";
             }

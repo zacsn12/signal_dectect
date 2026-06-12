@@ -14,6 +14,7 @@ import org.zacsn.signal_dectect.domain.usecase.AddToWatchlistUseCase;
 import org.zacsn.signal_dectect.domain.usecase.AddToWhitelistUseCase;
 import org.zacsn.signal_dectect.domain.usecase.StartScanUseCase;
 import org.zacsn.signal_dectect.domain.usecase.StopScanUseCase;
+import org.zacsn.signal_dectect.util.DistanceUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -142,7 +143,7 @@ public class SignalInspectViewModel extends ViewModel {
         
         if (maxDistance != null) {
             filtered = filtered.stream()
-                .filter(d -> d.getDistance() <= maxDistance)
+                .filter(d -> DistanceUtils.isReliable(d.getDistance()) && d.getDistance() <= maxDistance)
                 .collect(Collectors.toList());
         }
         

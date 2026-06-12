@@ -62,6 +62,11 @@ public class ScanRecordDetailActivity extends AppCompatActivity {
             intent.putExtra("DEVICE_NAME", device.getDeviceName());
             intent.putExtra("DEVICE_TYPE", device.getDeviceType().name());
             intent.putExtra("MANUFACTURER", device.getManufacturer());
+            intent.putExtra("CANDIDATE_MANUFACTURER", device.getCandidateManufacturer());
+            intent.putExtra("MANUFACTURER_SOURCE", device.getManufacturerSource());
+            intent.putExtra("MANUFACTURER_CONFIDENCE", device.getManufacturerConfidence());
+            intent.putExtra("MANUFACTURER_VERDICT", device.getManufacturerVerdict().name());
+            intent.putExtra("MANUFACTURER_EVIDENCE", device.getManufacturerEvidence());
             intent.putExtra("SIGNAL_STRENGTH", device.getSignalStrength());
             intent.putExtra("FREQUENCY", device.getFrequency() != null ? device.getFrequency() : 0);
             intent.putExtra("DISTANCE", device.getDistance());
@@ -149,6 +154,10 @@ public class ScanRecordDetailActivity extends AppCompatActivity {
                 return "WiFi巡检";
             case 3:
                 return "蓝牙+WiFi";
+            case 4:
+                return "蜂窝巡检";
+            case 7:
+                return "全部扫描";
             default:
                 return "扫描记录";
         }

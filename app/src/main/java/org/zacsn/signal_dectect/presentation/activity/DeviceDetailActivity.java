@@ -4,8 +4,9 @@ import android.os.Bundle;
 import android.view.MenuItem;
 import androidx.appcompat.app.AppCompatActivity;
 import org.zacsn.signal_dectect.databinding.ActivityDeviceDetailBinding;
+import org.zacsn.signal_dectect.domain.model.ManufacturerVerdict;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
-import org.zacsn.signal_dectect.util.MacVendorUtils;
+import org.zacsn.signal_dectect.util.DistanceUtils;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -40,6 +41,11 @@ public class DeviceDetailActivity extends AppCompatActivity {
         String deviceName = getIntent().getStringExtra("DEVICE_NAME");
         String deviceType = getIntent().getStringExtra("DEVICE_TYPE");
         String manufacturer = getIntent().getStringExtra("MANUFACTURER");
+        String candidateManufacturer = getIntent().getStringExtra("CANDIDATE_MANUFACTURER");
+        String manufacturerSource = getIntent().getStringExtra("MANUFACTURER_SOURCE");
+        int manufacturerConfidence = getIntent().getIntExtra("MANUFACTURER_CONFIDENCE", 0);
+        String manufacturerVerdict = getIntent().getStringExtra("MANUFACTURER_VERDICT");
+        String manufacturerEvidence = getIntent().getStringExtra("MANUFACTURER_EVIDENCE");
         int signalStrength = getIntent().getIntExtra("SIGNAL_STRENGTH", 0);
         int frequency = getIntent().getIntExtra("FREQUENCY", 0);
         double distance = getIntent().getDoubleExtra("DISTANCE", 0.0);
@@ -55,6 +61,11 @@ public class DeviceDetailActivity extends AppCompatActivity {
         String deviceName = getIntent().getStringExtra("DEVICE_NAME");
         String deviceType = getIntent().getStringExtra("DEVICE_TYPE");
         String manufacturer = getIntent().getStringExtra("MANUFACTURER");
+        String candidateManufacturer = getIntent().getStringExtra("CANDIDATE_MANUFACTURER");
+        String manufacturerSource = getIntent().getStringExtra("MANUFACTURER_SOURCE");
+        int manufacturerConfidence = getIntent().getIntExtra("MANUFACTURER_CONFIDENCE", 0);
+        String manufacturerVerdict = getIntent().getStringExtra("MANUFACTURER_VERDICT");
+        String manufacturerEvidence = getIntent().getStringExtra("MANUFACTURER_EVIDENCE");
         int signalStrength = getIntent().getIntExtra("SIGNAL_STRENGTH", 0);
         int frequency = getIntent().getIntExtra("FREQUENCY", 0);
         double distance = getIntent().getDoubleExtra("DISTANCE", 0.0);
@@ -98,22 +109,30 @@ public class DeviceDetailActivity extends AppCompatActivity {
         if (isWifi) {
             binding.labelDeviceName.setText("SSID:");
         } else {
-            binding.labelDeviceName.setText("蓝牙名称:");
+            binding.labelDeviceName.setText("广播名称:");
         }
         binding.tvDeviceName.setText(deviceName != null && !deviceName.isEmpty() ? deviceName : "Unknown Device");
         
-        binding.tvDistance.setText(String.format(Locale.getDefault(), "~%.1f米", distance));
+        binding.tvDistance.setText(DistanceUtils.formatMetersChinese(distance));
         binding.tvSignalStrengthValue.setText(signalStrength + " dBm");
         
-        // Get vendor from MAC address
-        String vendor = "未知";
-        if (macAddress != null && !macAddress.isEmpty()) {
-            vendor = MacVendorUtils.getVendor(macAddress);
-            if (vendor == null || vendor.isEmpty() || vendor.equals("Unknown")) {
-                vendor = "未知";
-            }
-        }
+        String vendor = buildManufacturerSummary(
+                manufacturer,
+                candidateManufacturer,
+                manufacturerSource,
+                manufacturerConfidence,
+                manufacturerVerdict,
+                manufacturerEvidence
+        );
         binding.tvManufacturer.setText(vendor);
+        binding.layoutManufacturer.setOnClickListener(v -> showManufacturerDetailDialog(
+                manufacturer,
+                candidateManufacturer,
+                manufacturerSource,
+                manufacturerConfidence,
+                manufacturerVerdict,
+                manufacturerEvidence
+        ));
         
         // Display frequency if available
         if (frequency > 0) {
@@ -147,6 +166,149 @@ public class DeviceDetailActivity extends AppCompatActivity {
             default:
                 return "未知";
         }
+    }
+
+    private String getManufacturerSourceLabel(String source) {
+        if (source == null) {
+            return "来源未知";
+        }
+
+        switch (source) {
+            case "mac_oui":
+                return "MAC厂商库";
+            case "ble_mac_oui":
+                return "BLE MAC厂商库";
+            case "classic_mac_oui":
+                return "经典蓝牙MAC厂商库";
+            case "classic_mac_name_match":
+                return "经典蓝牙MAC+名称一致";
+            case "wifi_bssid_oui":
+                return "WiFi BSSID厂商库";
+            case "wifi_ssid_name":
+                return "WiFi SSID品牌线索";
+            case "wifi_bssid_ssid_match":
+                return "WiFi BSSID+SSID一致";
+            case "wifi_randomized_bssid":
+                return "WiFi随机BSSID";
+            case "ble_company_id":
+                return "BLE广播厂商ID";
+            case "device_name":
+                return "设备名称";
+            case "gatt_device_info":
+                return "GATT设备信息";
+            case "gatt_pnp_id":
+                return "GATT PnP ID";
+            case "gatt_device_info+pnp_id":
+                return "GATT设备信息+PnP ID";
+            case "gatt_device_info_conflict":
+                return "GATT信息存在冲突";
+            case "cellular_operator":
+                return "运营商";
+            default:
+                return "来源未知";
+        }
+    }
+
+    private String buildManufacturerSummary(
+            String manufacturer,
+            String candidateManufacturer,
+            String manufacturerSource,
+            int manufacturerConfidence,
+            String verdictName,
+            String manufacturerEvidence
+    ) {
+        ManufacturerVerdict verdict = parseManufacturerVerdict(verdictName, manufacturerSource, manufacturerConfidence);
+        String displayManufacturer = isUsefulManufacturer(manufacturer) ? manufacturer : candidateManufacturer;
+        if (!isUsefulManufacturer(displayManufacturer)) {
+            displayManufacturer = "未知厂商";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(getManufacturerVerdictLabel(verdict))
+                .append(": ")
+                .append(displayManufacturer)
+                .append(" / ")
+                .append(manufacturerConfidence)
+                .append("%");
+
+        return builder.toString();
+    }
+
+    private void showManufacturerDetailDialog(
+            String manufacturer,
+            String candidateManufacturer,
+            String manufacturerSource,
+            int manufacturerConfidence,
+            String verdictName,
+            String manufacturerEvidence
+    ) {
+        ManufacturerVerdict verdict = parseManufacturerVerdict(verdictName, manufacturerSource, manufacturerConfidence);
+        String displayManufacturer = isUsefulManufacturer(manufacturer) ? manufacturer : candidateManufacturer;
+        if (!isUsefulManufacturer(displayManufacturer)) {
+            displayManufacturer = "未知厂商";
+        }
+
+        StringBuilder message = new StringBuilder();
+        message.append("判定结果: ").append(getManufacturerVerdictLabel(verdict)).append("\n")
+                .append("显示厂商: ").append(displayManufacturer).append("\n")
+                .append("确认厂商: ").append(isUsefulManufacturer(manufacturer) ? manufacturer : "未确认").append("\n")
+                .append("候选线索: ").append(isUsefulManufacturer(candidateManufacturer) ? candidateManufacturer : "无").append("\n")
+                .append("置信度: ").append(manufacturerConfidence).append("%\n")
+                .append("来源: ").append(getManufacturerSourceLabel(manufacturerSource));
+
+        if (manufacturerEvidence != null && !manufacturerEvidence.trim().isEmpty()) {
+            message.append("\n\n证据摘要:\n").append(manufacturerEvidence.trim());
+        }
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("厂商识别详情")
+                .setMessage(message.toString())
+                .setPositiveButton("知道了", null)
+                .show();
+    }
+
+    private ManufacturerVerdict parseManufacturerVerdict(String verdictName, String source, int confidence) {
+        if (verdictName != null) {
+            try {
+                return ManufacturerVerdict.valueOf(verdictName);
+            } catch (IllegalArgumentException ignored) {
+                // Fall through to legacy inference.
+            }
+        }
+        if (confidence >= 95 || "gatt_device_info".equals(source) || "gatt_pnp_id".equals(source)
+                || "gatt_device_info+pnp_id".equals(source)
+                || "wifi_bssid_ssid_match".equals(source)) {
+            return ManufacturerVerdict.CONFIRMED;
+        }
+        if (confidence >= 80) {
+            return ManufacturerVerdict.LIKELY;
+        }
+        if (confidence > 0) {
+            return ManufacturerVerdict.POSSIBLE;
+        }
+        return ManufacturerVerdict.UNKNOWN;
+    }
+
+    private String getManufacturerVerdictLabel(ManufacturerVerdict verdict) {
+        switch (verdict) {
+            case CONFIRMED:
+                return "已确认厂商";
+            case LIKELY:
+                return "高可信疑似";
+            case POSSIBLE:
+                return "候选线索";
+            default:
+                return "未知厂商";
+        }
+    }
+
+    private boolean isUsefulManufacturer(String manufacturer) {
+        return manufacturer != null
+                && !manufacturer.trim().isEmpty()
+                && !"未知".equals(manufacturer)
+                && !"未知厂商".equals(manufacturer)
+                && !"未确认".equals(manufacturer)
+                && !"随机地址".equals(manufacturer);
     }
     
     private int convertDbmToProgress(int dbm) {

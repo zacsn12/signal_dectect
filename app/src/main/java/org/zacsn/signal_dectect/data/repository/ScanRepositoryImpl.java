@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Transformations;
 
@@ -93,7 +94,7 @@ public class ScanRepositoryImpl implements ScanRepository {
         this.scanStartTime = System.currentTimeMillis();
         
         Intent intent = new Intent(context, SignalScanService.class);
-        context.startService(intent);
+        ContextCompat.startForegroundService(context, intent);
         context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     }
     
