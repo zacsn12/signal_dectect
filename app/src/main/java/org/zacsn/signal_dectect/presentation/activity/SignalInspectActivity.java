@@ -44,6 +44,8 @@ public class SignalInspectActivity extends AppCompatActivity {
     private java.util.Set<String> alertedConfiguredDevices = new java.util.HashSet<>();
     private java.util.Set<String> highlightedTargetDevices = new java.util.HashSet<>();
     private java.util.Set<String> watchlistKeywords = new java.util.HashSet<>();
+    private java.util.Set<String> watchlistMacs = new java.util.HashSet<>();
+    private java.util.Set<String> watchlistBrands = new java.util.HashSet<>();
     private java.util.Set<String> whitelistMacs = new java.util.HashSet<>();
     private java.util.Set<String> blacklistMacs = new java.util.HashSet<>();
     private java.util.List<SignalDevice> latestVisibleDevices = new java.util.ArrayList<>();
@@ -349,12 +351,18 @@ public class SignalInspectActivity extends AppCompatActivity {
     private void observeAlertConfig() {
         watchlistDao.getAll().observe(this, entities -> {
             java.util.Set<String> nextKeywords = new java.util.HashSet<>();
+            java.util.Set<String> nextMacs = new java.util.HashSet<>();
+            java.util.Set<String> nextBrands = new java.util.HashSet<>();
             for (WatchlistItemEntity entity : entities) {
-                addKeyword(nextKeywords, entity.getMacAddress());
+                addMac(nextMacs, entity.getMacAddress());
+                addBrand(nextBrands, entity.getManufacturer());
+                addBrand(nextBrands, entity.getDeviceName());
                 addKeyword(nextKeywords, entity.getManufacturer());
                 addKeyword(nextKeywords, entity.getDeviceName());
             }
             watchlistKeywords = nextKeywords;
+            watchlistMacs = nextMacs;
+            watchlistBrands = nextBrands;
         });
 
         whitelistDao.getAll().observe(this, entities -> {
@@ -442,23 +450,50 @@ public class SignalInspectActivity extends AppCompatActivity {
     }
 
     private String findWatchlistMatch(SignalDevice device) {
-        String manufacturer = safeLower(device.getManufacturer()).trim();
-        String macAddress = safeLower(device.getMacAddress()).trim();
+        String normalizedMac = normalizeMac(device.getMacAddress());
+        if (!normalizedMac.isEmpty() && watchlistMacs.contains(normalizedMac)) {
+            return normalizedMac + " (MAC精确命中)";
+        }
+
+        if (!isManufacturerAlertable(device)) {
+            return null;
+        }
+
+        String manufacturer = getAlertableManufacturer(device);
+        String brandKey = toBrandKey(manufacturer);
+        if (!brandKey.isEmpty() && watchlistBrands.contains(brandKey)) {
+            return getCanonicalBrandLabel(brandKey) + " (" + getManufacturerAlertLevelLabel(device) + ")";
+        }
+
+        String normalizedManufacturer = normalizeTextToken(manufacturer);
+        if (normalizedManufacturer.length() < 4) {
+            return null;
+        }
 
         for (String keyword : watchlistKeywords) {
-            if (keyword.equals(macAddress) || keyword.equals(normalizeMac(device.getMacAddress()).toLowerCase(java.util.Locale.US))) {
-                return keyword + " (MAC精确命中)";
-            }
-
-            if (isManufacturerConfirmed(device) && manufacturer.contains(keyword)) {
-                return keyword + " (厂商已确认)";
+            if (isStrongKeyword(keyword) && normalizedManufacturer.contains(normalizeTextToken(keyword))) {
+                return keyword + " (" + getManufacturerAlertLevelLabel(device) + ")";
             }
         }
         return null;
     }
 
-    private boolean isManufacturerConfirmed(SignalDevice device) {
-        return device.getManufacturerVerdict() == ManufacturerVerdict.CONFIRMED;
+    private boolean isManufacturerAlertable(SignalDevice device) {
+        ManufacturerVerdict verdict = device.getManufacturerVerdict();
+        return verdict == ManufacturerVerdict.CONFIRMED || verdict == ManufacturerVerdict.LIKELY;
+    }
+
+    private String getManufacturerAlertLevelLabel(SignalDevice device) {
+        return device.getManufacturerVerdict() == ManufacturerVerdict.CONFIRMED
+                ? "厂商已确认"
+                : "厂商高可信";
+    }
+
+    private String getAlertableManufacturer(SignalDevice device) {
+        if (device.getManufacturerVerdict() == ManufacturerVerdict.CONFIRMED) {
+            return safeText(device.getManufacturer());
+        }
+        return safeText(device.getCandidateManufacturer());
     }
 
     private void showConfiguredAlert(SignalDevice device, String alertType, String alertReason) {
@@ -477,8 +512,8 @@ public class SignalInspectActivity extends AppCompatActivity {
                 + "设备名称: " + safeText(device.getDeviceName()) + "\n"
                 + "MAC 地址: " + safeText(device.getMacAddress()) + "\n"
                 + "信号强度: " + device.getSignalStrength() + " dBm\n"
-                + "确认厂商: " + safeText(device.getManufacturer()) + "\n"
-                + "候选线索: " + safeText(device.getCandidateManufacturer()) + "\n"
+                + "确认厂商: " + safeManufacturer(device.getManufacturer(), "未确认") + "\n"
+                + "候选线索: " + safeManufacturer(device.getCandidateManufacturer(), "无") + "\n"
                 + "判定等级: " + device.getManufacturerVerdict().name() + "\n"
                 + "线索来源: " + safeText(device.getManufacturerSource()) + "\n"
                 + "证据摘要: " + safeText(device.getManufacturerEvidence()) + "\n"
@@ -548,8 +583,15 @@ public class SignalInspectActivity extends AppCompatActivity {
 
     private void addKeyword(java.util.Set<String> keywords, String value) {
         String normalized = safeLower(value).trim();
-        if (!normalized.isEmpty()) {
+        if (isStrongKeyword(normalized)) {
             keywords.add(normalized);
+        }
+    }
+
+    private void addBrand(java.util.Set<String> brands, String value) {
+        String brand = toBrandKey(value);
+        if (!brand.isEmpty()) {
+            brands.add(brand);
         }
     }
 
@@ -573,6 +615,95 @@ public class SignalInspectActivity extends AppCompatActivity {
 
     private String safeText(String value) {
         return value == null || value.trim().isEmpty() ? "未知" : value;
+    }
+
+    private String safeManufacturer(String value, String fallback) {
+        if (value == null || value.trim().isEmpty()) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if ("未知".equals(trimmed) || "未知厂商".equals(trimmed) || "未确认".equals(trimmed)
+                || "随机地址".equals(trimmed)) {
+            return fallback;
+        }
+        return trimmed;
+    }
+
+    private boolean isStrongKeyword(String keyword) {
+        String normalized = normalizeTextToken(keyword);
+        return normalized.length() >= 4;
+    }
+
+    private String normalizeTextToken(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.toLowerCase(java.util.Locale.US).replaceAll("[^a-z0-9\\u4e00-\\u9fa5]+", "");
+    }
+
+    private String toBrandKey(String value) {
+        String normalized = normalizeTextToken(value);
+        if (normalized.isEmpty()) {
+            return "";
+        }
+        if (normalized.contains("apple") || normalized.contains("iphone") || normalized.contains("ipad")) {
+            return "apple";
+        }
+        if (normalized.contains("huawei") || normalized.contains("honor")) {
+            return "huawei";
+        }
+        if (normalized.contains("xiaomi") || normalized.contains("redmi")) {
+            return "xiaomi";
+        }
+        if (normalized.contains("samsung") || normalized.contains("galaxy")) {
+            return "samsung";
+        }
+        if (normalized.contains("oppo")) {
+            return "oppo";
+        }
+        if (normalized.contains("vivo") || normalized.contains("iqoo")) {
+            return "vivo";
+        }
+        if (normalized.contains("oneplus")) {
+            return "oneplus";
+        }
+        if (normalized.contains("google") || normalized.contains("pixel")) {
+            return "google";
+        }
+        if (normalized.contains("realme")) {
+            return "realme";
+        }
+        if (normalized.contains("microsoft")) {
+            return "microsoft";
+        }
+        return normalized.length() >= 4 ? normalized : "";
+    }
+
+    private String getCanonicalBrandLabel(String brandKey) {
+        switch (brandKey) {
+            case "apple":
+                return "Apple";
+            case "huawei":
+                return "Huawei/Honor";
+            case "xiaomi":
+                return "Xiaomi/Redmi";
+            case "samsung":
+                return "Samsung";
+            case "oppo":
+                return "OPPO";
+            case "vivo":
+                return "vivo/iQOO";
+            case "oneplus":
+                return "OnePlus";
+            case "google":
+                return "Google/Pixel";
+            case "realme":
+                return "realme";
+            case "microsoft":
+                return "Microsoft";
+            default:
+                return brandKey;
+        }
     }
     
     @Override

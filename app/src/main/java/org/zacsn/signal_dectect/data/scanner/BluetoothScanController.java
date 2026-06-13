@@ -791,14 +791,22 @@ public class BluetoothScanController {
         String macManufacturer = MacVendorUtils.getVendor(macAddress);
         if (isKnownManufacturer(macManufacturer)) {
             boolean isClassicBluetooth = deviceType == DeviceType.BLUETOOTH_CLASSIC;
-            int confidence = isClassicBluetooth ? 70 : 45;
+            int confidence = isClassicBluetooth ? 80 : 45;
             String source = isClassicBluetooth ? "classic_mac_oui" : "ble_mac_oui";
-            best = best.better(ManufacturerEvidence.possible(
+            ManufacturerEvidence macEvidence = isClassicBluetooth
+                    ? ManufacturerEvidence.likely(
+                            macManufacturer,
+                            source,
+                            confidence,
+                            "经典蓝牙MAC OUI命中: " + macManufacturer
+                    )
+                    : ManufacturerEvidence.possible(
                     macManufacturer,
                     source,
                     confidence,
                     "MAC OUI命中: " + macManufacturer
-            ));
+            );
+            best = best.better(macEvidence);
         }
 
         if (scanRecord != null) {

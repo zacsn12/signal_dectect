@@ -40,5 +40,6 @@ public interface ScanRepository {
     interface ScanCallback {
         void onDeviceFound(SignalDevice device);
         void onDeviceListUpdated(List<SignalDevice> devices);
+        default void onScanError(String error) {}
     }
 }

@@ -65,6 +65,13 @@ public class ScanRepositoryImpl implements ScanRepository {
                         currentCallback.onDeviceListUpdated(devices);
                     }
                 }
+
+                @Override
+                public void onScanError(String error) {
+                    if (currentCallback != null) {
+                        currentCallback.onScanError(error);
+                    }
+                }
             });
             
             if (currentScanType != null) {

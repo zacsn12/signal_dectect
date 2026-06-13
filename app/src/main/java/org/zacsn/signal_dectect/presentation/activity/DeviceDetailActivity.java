@@ -220,16 +220,20 @@ public class DeviceDetailActivity extends AppCompatActivity {
         ManufacturerVerdict verdict = parseManufacturerVerdict(verdictName, manufacturerSource, manufacturerConfidence);
         String displayManufacturer = isUsefulManufacturer(manufacturer) ? manufacturer : candidateManufacturer;
         if (!isUsefulManufacturer(displayManufacturer)) {
-            displayManufacturer = "未知厂商";
+            return "未知厂商: 暂无明确厂商线索";
         }
 
         StringBuilder builder = new StringBuilder();
         builder.append(getManufacturerVerdictLabel(verdict))
                 .append(": ")
-                .append(displayManufacturer)
-                .append(" / ")
-                .append(manufacturerConfidence)
-                .append("%");
+                .append(displayManufacturer);
+        if (manufacturerConfidence > 0) {
+            if (verdict == ManufacturerVerdict.POSSIBLE) {
+                builder.append(" / 线索可信度 ").append(manufacturerConfidence).append("%");
+            } else if (verdict != ManufacturerVerdict.UNKNOWN) {
+                builder.append(" / ").append(manufacturerConfidence).append("%");
+            }
+        }
 
         return builder.toString();
     }
@@ -244,16 +248,21 @@ public class DeviceDetailActivity extends AppCompatActivity {
     ) {
         ManufacturerVerdict verdict = parseManufacturerVerdict(verdictName, manufacturerSource, manufacturerConfidence);
         String displayManufacturer = isUsefulManufacturer(manufacturer) ? manufacturer : candidateManufacturer;
-        if (!isUsefulManufacturer(displayManufacturer)) {
-            displayManufacturer = "未知厂商";
-        }
+        boolean hasDisplayManufacturer = isUsefulManufacturer(displayManufacturer);
 
         StringBuilder message = new StringBuilder();
         message.append("判定结果: ").append(getManufacturerVerdictLabel(verdict)).append("\n")
-                .append("显示厂商: ").append(displayManufacturer).append("\n")
+                .append("显示厂商: ").append(hasDisplayManufacturer ? displayManufacturer : "未知厂商").append("\n")
                 .append("确认厂商: ").append(isUsefulManufacturer(manufacturer) ? manufacturer : "未确认").append("\n")
-                .append("候选线索: ").append(isUsefulManufacturer(candidateManufacturer) ? candidateManufacturer : "无").append("\n")
-                .append("置信度: ").append(manufacturerConfidence).append("%\n")
+                .append("候选线索: ").append(isUsefulManufacturer(candidateManufacturer) ? candidateManufacturer : "无").append("\n");
+        if (hasDisplayManufacturer && manufacturerConfidence > 0) {
+            message.append(verdict == ManufacturerVerdict.POSSIBLE ? "线索可信度: " : "置信度: ")
+                    .append(manufacturerConfidence)
+                    .append("%\n");
+        } else {
+            message.append("置信度: 无明确厂商时不展示百分比\n");
+        }
+        message
                 .append("来源: ").append(getManufacturerSourceLabel(manufacturerSource));
 
         if (manufacturerEvidence != null && !manufacturerEvidence.trim().isEmpty()) {

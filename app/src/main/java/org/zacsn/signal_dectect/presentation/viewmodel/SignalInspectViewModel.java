@@ -79,6 +79,11 @@ public class SignalInspectViewModel extends ViewModel {
                 List<SignalDevice> filtered = applyFilters(deviceList);
                 devices.postValue(filtered);
             }
+
+            @Override
+            public void onScanError(String error) {
+                errorMessage.postValue(error);
+            }
         });
         
         if (success) {

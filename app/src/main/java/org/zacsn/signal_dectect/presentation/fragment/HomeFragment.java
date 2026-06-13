@@ -109,47 +109,46 @@ public class HomeFragment extends Fragment {
                 }
             }
 
-            // Calculate score (deduct 15 points per blacklisted threat device, min 0)
-            int score = Math.max(0, 100 - blacklist.size() * 15);
+            // This score describes local configuration hygiene, not a live threat verdict.
+            int score = Math.max(0, 100 - blacklist.size() * 8);
             binding.tvScoreVal.setText(String.valueOf(score));
 
-            // Set score text color & overall protection status badge based on score
             if (score >= 90) {
                 binding.tvScoreVal.setTextColor(requireContext().getColor(R.color.success));
-                binding.tvDashboardStatus.setText("系统安全 · 实时防护中");
+                binding.tvDashboardStatus.setText("配置正常 · 等待巡检");
                 binding.tvDashboardStatus.setTextColor(requireContext().getColor(R.color.success));
             } else if (score >= 60) {
                 binding.tvScoreVal.setTextColor(requireContext().getColor(R.color.warning));
-                binding.tvDashboardStatus.setText("存在隐患 · 请排查威胁");
+                binding.tvDashboardStatus.setText("配置较多 · 建议定期复核");
                 binding.tvDashboardStatus.setTextColor(requireContext().getColor(R.color.warning));
             } else {
                 binding.tvScoreVal.setTextColor(requireContext().getColor(R.color.error));
-                binding.tvDashboardStatus.setText("检测到威胁 · 极高风险");
+                binding.tvDashboardStatus.setText("配置复杂 · 建议整理名单");
                 binding.tvDashboardStatus.setTextColor(requireContext().getColor(R.color.error));
             }
 
             // Update sub-items status
             if (hasBluetoothThreat) {
-                binding.tvStatusBluetooth.setText("检测到威胁");
-                binding.tvStatusBluetooth.setTextColor(requireContext().getColor(R.color.error));
+                binding.tvStatusBluetooth.setText("已配置关注");
+                binding.tvStatusBluetooth.setTextColor(requireContext().getColor(R.color.warning));
             } else {
-                binding.tvStatusBluetooth.setText("运行正常");
+                binding.tvStatusBluetooth.setText("待巡检");
                 binding.tvStatusBluetooth.setTextColor(requireContext().getColor(R.color.success));
             }
 
             if (hasWifiThreat) {
-                binding.tvStatusWifi.setText("检测到威胁");
-                binding.tvStatusWifi.setTextColor(requireContext().getColor(R.color.error));
+                binding.tvStatusWifi.setText("已配置关注");
+                binding.tvStatusWifi.setTextColor(requireContext().getColor(R.color.warning));
             } else {
-                binding.tvStatusWifi.setText("运行正常");
+                binding.tvStatusWifi.setText("待巡检");
                 binding.tvStatusWifi.setTextColor(requireContext().getColor(R.color.success));
             }
 
             if (hasCellularThreat) {
-                binding.tvStatusCellular.setText("检测到威胁");
-                binding.tvStatusCellular.setTextColor(requireContext().getColor(R.color.error));
+                binding.tvStatusCellular.setText("已配置关注");
+                binding.tvStatusCellular.setTextColor(requireContext().getColor(R.color.warning));
             } else {
-                binding.tvStatusCellular.setText("运行正常");
+                binding.tvStatusCellular.setText("待巡检");
                 binding.tvStatusCellular.setTextColor(requireContext().getColor(R.color.success));
             }
         });

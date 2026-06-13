@@ -92,7 +92,61 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="巡检机型：用于设置需要重点发现的目标厂商，例如 apple、huawei、xiaomi。蓝牙巡检中，只有厂商判定达到“已确认厂商”的设备才会按巡检机型触发警示。\n\n白名单：用于排除可信设备。命中白名单的 MAC 地址不会触发巡检机型告警。\n\n黑名单：用于强制告警。命中黑名单的 MAC 地址无论厂商识别结果如何，都会触发告警。"
+                    android:text="巡检机型：用于设置需要重点发现的目标厂商，例如 apple、huawei、xiaomi。巡检中，厂商判定达到“已确认厂商”或“高可信疑似”的设备会按巡检机型触发警示。\n\n白名单：用于排除可信设备。命中白名单的 MAC 地址不会触发巡检机型告警。\n\n黑名单：用于强制告警。命中黑名单的 MAC 地址无论厂商识别结果如何，都会触发告警。"
+                    android:textColor="#475569"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_card_rounded"
+                android:elevation="2dp"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:text="局域网扫描如何判断设备"
+                    android:textColor="#0F172A"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:lineSpacingExtra="4dp"
+                    android:text="局域网扫描会优先读取当前 WiFi 的 IP、网关和网段，然后通过 ICMP/ARP 探测发现在线设备。\n\n设备厂商主要来自 MAC OUI 厂商库。命中厂商库可说明网卡或设备供应商，但不一定等于整机品牌。\n\n系统会标记网关/路由器、摄像头设备、移动终端、电脑终端等类别。类别来自网关地址、主机名和厂商关键词推断，属于辅助判断。\n\n局域网扫描受 Android 系统权限、设备防火墙、ARP 缓存和网络隔离影响。有些设备在线但不响应 ping，可能只能通过 ARP 缓存发现。"
+                    android:textColor="#475569"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_card_rounded"
+                android:elevation="2dp"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:text="基站扫描如何判断"
+                    android:textColor="#0F172A"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:lineSpacingExtra="4dp"
+                    android:text="基站扫描读取系统提供的运营商名称、PLMN、网络制式和信号强度，例如 5G NR、4G LTE、3G、2G。\n\n运营商名称来自系统 Telephony 服务，通常可信度较高，但普通 Android API 无法直接列出周围所有基站，也无法单独证明某个基站是否伪造。\n\n当运营商信息完整时，系统会以高可信显示运营商；当运营商未知时，只保留信号强度和网络类型作为参考。\n\n如果需要更强的伪基站识别，需要接入小区 ID、LAC/TAC、频点、PCI、邻区列表、历史基站白名单等更底层数据。"
                     android:textColor="#475569"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -119,7 +173,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="已确认厂商：存在较强证据，通常来自 GATT 设备信息服务或 PnP ID。此等级可用于目标厂商告警。\n\n高可信疑似：存在较强线索，但证据之间不完整或存在冲突。此等级会在列表中展示，但不会按巡检机型直接告警。\n\n候选线索：来自 BLE 广播厂商 ID、MAC OUI 或名称规则等弱证据，只能说明“可能相关”，不能直接认定整机厂商。\n\n未知厂商：没有足够证据，或扫描到的是随机地址、无名称、无可读 GATT 信息的设备。"
+                    android:text="已确认厂商：存在较强证据，通常来自 GATT 设备信息服务、PnP ID，或 WiFi BSSID 与 SSID 品牌一致。此等级可用于目标厂商告警。\n\n高可信疑似：存在较强线索，但证据之间不完整或仍可能被人为修改。此等级也会按巡检机型触发警示，弹窗中会标明是高可信命中。\n\n候选线索：来自 BLE 广播厂商 ID、BLE MAC OUI 等弱证据，只能说明“可能相关”，不会按巡检机型直接告警。\n\n未知厂商：没有足够证据，或扫描到的是随机地址、无名称、无可读 GATT 信息的设备。"
                     android:textColor="#475569"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -146,7 +200,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="100%：GATT Manufacturer Name 与 GATT PnP ID 厂商一致。两个独立字段互相印证，是当前最可靠的正常扫描证据。\n\n98%：GATT PnP ID 可解析出明确厂商。PnP ID 中的 VID 来源可能是 Bluetooth SIG 或 USB-IF，比普通广播厂商 ID 更接近设备身份。\n\n96%：GATT 设备信息服务返回明确 Manufacturer Name。该字段来自设备自报，可信度高，但理论上仍可被伪造。\n\n95%：WiFi BSSID OUI 与 SSID 品牌线索指向同一厂商。系统会在 WiFi 场景下标记为已确认厂商。\n\n85%：GATT 返回了厂商信息但存在冲突，或经典蓝牙 MAC OUI 与设备名称品牌一致。系统会标记为高可信疑似，但不直接作为已确认厂商。\n\n80%：WiFi BSSID OUI 命中厂商库。路由器/AP 的 BSSID 通常更稳定，因此该线索可作为高可信疑似。\n\n75%：经典蓝牙设备名称包含明确品牌特征，或非随机 BSSID 的 WiFi SSID 命中手机品牌线索。名称可被修改，因此单独命中不作为最终确认。\n\n70%：经典蓝牙 MAC OUI 命中厂商库，BLE 设备名称包含明确品牌特征，或随机 BSSID 的 WiFi SSID 命中手机品牌线索。\n\n60%：BLE 广播 Company ID 命中厂商库。该 ID 只能说明广播数据格式或协议归属，不等于整机厂商。\n\n45%：BLE MAC OUI 命中厂商库。BLE 设备常使用随机地址或可解析私有地址，因此该线索可信度较低。\n\n0%：没有可靠厂商证据，或 WiFi BSSID 疑似随机地址且没有 SSID 品牌线索。"
+                    android:text="100%：GATT Manufacturer Name 与 GATT PnP ID 厂商一致。两个独立字段互相印证，是当前最可靠的正常扫描证据。\n\n98%：GATT PnP ID 可解析出明确厂商。PnP ID 中的 VID 来源可能是 Bluetooth SIG 或 USB-IF，比普通广播厂商 ID 更接近设备身份。\n\n96%：GATT 设备信息服务返回明确 Manufacturer Name。该字段来自设备自报，可信度高，但理论上仍可被伪造。\n\n95%：WiFi BSSID OUI 与 SSID 品牌线索指向同一厂商。系统会在 WiFi 场景下标记为已确认厂商。\n\n85%：GATT 返回了厂商信息但存在冲突，或经典蓝牙 MAC OUI 与设备名称品牌一致。系统会标记为高可信疑似。\n\n80%：经典蓝牙 MAC OUI 命中厂商库，或 WiFi BSSID OUI 命中厂商库。经典蓝牙地址和路由器/AP BSSID 通常更稳定，因此可作为高可信疑似。\n\n75%：经典蓝牙设备名称包含明确品牌特征，或非随机 BSSID 的 WiFi SSID 命中手机品牌线索。名称可被修改，因此单独命中不作为最终确认。\n\n70%：BLE 设备名称包含明确品牌特征，或随机 BSSID 的 WiFi SSID 命中手机品牌线索。\n\n60%：BLE 广播 Company ID 命中厂商库。该 ID 只能说明广播数据格式或协议归属，不等于整机厂商。\n\n45%：BLE MAC OUI 命中厂商库。BLE 设备常使用随机地址或可解析私有地址，因此该线索可信度较低。\n\n0%：没有可靠厂商证据，或 WiFi BSSID 疑似随机地址且没有 SSID 品牌线索。"
                     android:textColor="#475569"
                     android:textSize="14sp" />
             </LinearLayout>

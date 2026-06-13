@@ -57,15 +57,30 @@ public class LanDeviceAdapter extends ListAdapter<LanDevice, LanDeviceAdapter.Vi
             binding.tvIpAddress.setText(device.getIpAddress());
             binding.tvHostname.setText(device.getHostname());
             binding.tvMacAddress.setText("MAC: " + device.getMacAddress());
-            
-            if (device.isCamera()) {
-                binding.tvDeviceType.setText("📷 摄像头设备");
-                binding.tvDeviceType.setVisibility(android.view.View.VISIBLE);
+
+            if (device.isGateway()) {
+                binding.tvDeviceType.setText("网关/路由器");
+                binding.tvDeviceType.setBackgroundResource(org.zacsn.signal_dectect.R.drawable.bg_pill_green);
+                binding.tvDeviceType.setTextColor(itemView.getContext().getColor(org.zacsn.signal_dectect.R.color.success));
+            } else if (device.isCamera()) {
+                binding.tvDeviceType.setText("摄像头设备");
+                binding.tvDeviceType.setBackgroundResource(org.zacsn.signal_dectect.R.drawable.bg_pill_orange);
+                binding.tvDeviceType.setTextColor(itemView.getContext().getColor(org.zacsn.signal_dectect.R.color.warning));
             } else {
-                binding.tvDeviceType.setVisibility(android.view.View.GONE);
+                binding.tvDeviceType.setText(device.getDeviceCategory());
+                binding.tvDeviceType.setBackgroundResource(org.zacsn.signal_dectect.R.drawable.bg_pill_blue);
+                binding.tvDeviceType.setTextColor(itemView.getContext().getColor(org.zacsn.signal_dectect.R.color.primary));
             }
+
+            binding.tvManufacturer.setText("厂商: " + safeText(device.getManufacturer()));
+            binding.tvConfidence.setText("可信度 " + device.getConfidence() + "%");
+            binding.tvDiscoveryMethod.setText("发现方式: " + safeText(device.getDiscoveryMethod()));
             
             itemView.setOnClickListener(v -> listener.onDeviceClick(device));
+        }
+
+        private String safeText(String value) {
+            return value == null || value.trim().isEmpty() ? "未知" : value;
         }
     }
 }

@@ -146,7 +146,7 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
         private void bindManufacturerVerdict(SignalDevice device) {
             ManufacturerVerdict verdict = device.getManufacturerVerdict();
             android.content.Context context = binding.getRoot().getContext();
-            binding.tvManufacturerVerdict.setText(getVerdictLabel(verdict, device.getManufacturerConfidence()));
+            binding.tvManufacturerVerdict.setText(getVerdictLabel(device));
             binding.tvManufacturerSummary.setText(buildManufacturerSummary(device));
 
             switch (verdict) {
@@ -170,14 +170,19 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
             }
         }
 
-        private String getVerdictLabel(ManufacturerVerdict verdict, int confidence) {
+        private String getVerdictLabel(SignalDevice device) {
+            ManufacturerVerdict verdict = device.getManufacturerVerdict();
+            int confidence = device.getManufacturerConfidence();
+            if (!isUsefulManufacturer(getDisplayManufacturer(device))) {
+                return "未知厂商";
+            }
             switch (verdict) {
                 case CONFIRMED:
                     return "已确认 " + confidence + "%";
                 case LIKELY:
                     return "高可信 " + confidence + "%";
                 case POSSIBLE:
-                    return "候选 " + confidence + "%";
+                    return "候选线索";
                 default:
                     return "未知厂商";
             }
@@ -186,9 +191,15 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
         private String buildManufacturerSummary(SignalDevice device) {
             String manufacturer = getDisplayManufacturer(device);
             if (!isUsefulManufacturer(manufacturer)) {
-                return "暂无可信厂商证据";
+                return "暂无明确厂商线索";
             }
-            return manufacturer + " / " + getSourceLabel(device.getManufacturerSource());
+            String sourceLabel = getSourceLabel(device.getManufacturerSource());
+            if (device.getManufacturerVerdict() == ManufacturerVerdict.POSSIBLE
+                    && device.getManufacturerConfidence() > 0) {
+                return manufacturer + " / " + sourceLabel + " · 线索可信度 "
+                        + device.getManufacturerConfidence() + "%";
+            }
+            return manufacturer + " / " + sourceLabel;
         }
 
         private String getDisplayManufacturer(SignalDevice device) {

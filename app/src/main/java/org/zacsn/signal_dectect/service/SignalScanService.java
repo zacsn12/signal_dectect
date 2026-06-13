@@ -78,6 +78,7 @@ public class SignalScanService extends Service {
     public interface ServiceCallback {
         void onDeviceFound(SignalDevice device);
         void onDeviceListUpdated(List<SignalDevice> devices);
+        void onScanError(String error);
     }
     
     public class LocalBinder extends Binder {
@@ -166,7 +167,7 @@ public class SignalScanService extends Service {
             
             @Override
             public void onScanError(String error) {
-                // Handle error
+                handleScanError("蓝牙巡检: " + error);
             }
         });
         
@@ -178,7 +179,7 @@ public class SignalScanService extends Service {
             
             @Override
             public void onScanError(String error) {
-                // Handle error
+                handleScanError("WiFi巡检: " + error);
             }
         });
         
@@ -190,9 +191,15 @@ public class SignalScanService extends Service {
             
             @Override
             public void onScanError(String error) {
-                // Handle error
+                handleScanError("蜂窝巡检: " + error);
             }
         });
+    }
+
+    private void handleScanError(String error) {
+        if (callback != null) {
+            callback.onScanError(error);
+        }
     }
     
     void handleDeviceFound(SignalDevice device) {

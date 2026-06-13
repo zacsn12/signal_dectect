@@ -60,6 +60,7 @@ public class PermissionManager {
             }
             if (scanType.isCellular()) {
                 permissions.add(Manifest.permission.READ_PHONE_STATE);
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
             }
         } else {
             // Android 8-11 (API 26-30)
@@ -76,6 +77,7 @@ public class PermissionManager {
             }
             if (scanType.isCellular()) {
                 permissions.add(Manifest.permission.READ_PHONE_STATE);
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
             }
         }
         

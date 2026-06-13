@@ -187,6 +187,11 @@ public class SignalScanServiceTest {
                     public void onDeviceListUpdated(List<SignalDevice> devices) {
                         // Device list updated
                     }
+
+                    @Override
+                    public void onScanError(String error) {
+                        // Scan error reported
+                    }
                 });
                 
                 bindLatch.countDown();
@@ -394,6 +399,9 @@ public class SignalScanServiceTest {
 
             @Override
             public void onDeviceListUpdated(List<SignalDevice> devices) {}
+
+            @Override
+            public void onScanError(String error) {}
         };
         
         service.setCallback(callback);
