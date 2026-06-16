@@ -21,6 +21,7 @@ import org.zacsn.signal_dectect.data.database.WatchlistDao;
 import org.zacsn.signal_dectect.data.database.WatchlistItemEntity;
 import org.zacsn.signal_dectect.data.database.WhitelistDao;
 import org.zacsn.signal_dectect.data.database.WhitelistItemEntity;
+import org.zacsn.signal_dectect.domain.alert.AlertRuleMatcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -127,7 +128,7 @@ public class ListManagerActivity extends AppCompatActivity {
         EditText etSecondary = view.findViewById(R.id.et_secondary);
 
         if (listType == TYPE_WATCHLIST) {
-            etPrimary.setHint("厂商名称 (如 apple)");
+            etPrimary.setHint("MAC地址 / 品牌 / 关键词");
         } else {
             etPrimary.setHint("MAC地址 (如 00:11:22:33:44:55)");
         }
@@ -153,13 +154,34 @@ public class ListManagerActivity extends AppCompatActivity {
         new Thread(() -> {
             long now = System.currentTimeMillis();
             if (listType == TYPE_WATCHLIST) {
-                watchlistDao.insert(new WatchlistItemEntity(primary, secondary, "all", primary, now));
+                String matchType = inferWatchlistMatchType(primary);
+                watchlistDao.insert(new WatchlistItemEntity(
+                        primary,
+                        secondary,
+                        "all",
+                        primary,
+                        now,
+                        matchType,
+                        primary,
+                        !secondary.isEmpty() ? secondary : primary
+                ));
             } else if (listType == TYPE_WHITELIST) {
                 whitelistDao.insert(new WhitelistItemEntity(primary, secondary, "all", "", now));
             } else if (listType == TYPE_BLACKLIST) {
                 blacklistDao.insert(new BlacklistItemEntity(primary, secondary, "all", "", now, ""));
             }
         }).start();
+    }
+
+    private String inferWatchlistMatchType(String value) {
+        String normalizedMac = AlertRuleMatcher.normalizeMac(value);
+        if (normalizedMac.matches("^[0-9A-F]{2}(:[0-9A-F]{2}){5}$")) {
+            return "MAC";
+        }
+        if (!AlertRuleMatcher.toBrandKey(value).isEmpty()) {
+            return "BRAND";
+        }
+        return "KEYWORD";
     }
 
     private void deleteItem(ListItem item) {

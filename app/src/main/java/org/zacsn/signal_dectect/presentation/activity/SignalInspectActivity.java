@@ -20,7 +20,9 @@ import org.zacsn.signal_dectect.data.database.WatchlistItemEntity;
 import org.zacsn.signal_dectect.data.database.WhitelistDao;
 import org.zacsn.signal_dectect.data.database.WhitelistItemEntity;
 import org.zacsn.signal_dectect.databinding.ActivitySignalInspectBinding;
-import org.zacsn.signal_dectect.domain.model.ManufacturerVerdict;
+import org.zacsn.signal_dectect.domain.alert.AlertConfig;
+import org.zacsn.signal_dectect.domain.alert.AlertMatch;
+import org.zacsn.signal_dectect.domain.alert.AlertRuleMatcher;
 import org.zacsn.signal_dectect.domain.model.ScanType;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
 import org.zacsn.signal_dectect.presentation.adapter.SignalDeviceAdapter;
@@ -32,6 +34,9 @@ import javax.inject.Inject;
 
 @AndroidEntryPoint
 public class SignalInspectActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "signal_inspect_settings";
+    private static final String KEY_SELECTED_DISTANCE_METERS = "selected_distance_meters";
+    private static final float DEFAULT_SELECTED_DISTANCE_METERS = 5.0f;
     
     private ActivitySignalInspectBinding binding;
     private SignalInspectViewModel viewModel;
@@ -48,9 +53,17 @@ public class SignalInspectActivity extends AppCompatActivity {
     private java.util.Set<String> watchlistBrands = new java.util.HashSet<>();
     private java.util.Set<String> whitelistMacs = new java.util.HashSet<>();
     private java.util.Set<String> blacklistMacs = new java.util.HashSet<>();
+    private AlertConfig alertConfig = new AlertConfig(
+            watchlistKeywords,
+            watchlistMacs,
+            watchlistBrands,
+            whitelistMacs,
+            blacklistMacs
+    );
     private java.util.List<SignalDevice> latestVisibleDevices = new java.util.ArrayList<>();
     private java.util.List<SignalDevice> currentDevices = new java.util.ArrayList<>();
     private long scanStartTime = 0;
+    private double selectedDistanceMeters = 0.0;
     
     @Inject
     ScanRecordDao scanRecordDao;
@@ -99,6 +112,9 @@ public class SignalInspectActivity extends AppCompatActivity {
         
         setTitle("信号巡检");
         binding.tvTitle.setText("信号巡检");
+        selectedDistanceMeters = loadSelectedDistanceMeters();
+
+        binding.btnDistance.setOnClickListener(v -> showDistanceSettingDialog());
 
         // Volume adjustment icon
         binding.btnVolume.setOnClickListener(v -> {
@@ -188,6 +204,7 @@ public class SignalInspectActivity extends AppCompatActivity {
         });
         
         viewModel = new ViewModelProvider(this).get(SignalInspectViewModel.class);
+        syncDistanceFilterToViewModel();
         
         setupRecyclerView();
         setupFab();
@@ -200,6 +217,94 @@ public class SignalInspectActivity extends AppCompatActivity {
             return;
         }
         soundEffectManager.setVolume(volume / (float) maxVolume);
+    }
+
+    private void showDistanceSettingDialog() {
+        View dialogView = getLayoutInflater().inflate(
+                org.zacsn.signal_dectect.R.layout.dialog_distance_setting,
+                null
+        );
+        TextView tvCurrent = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_distance_current);
+        TextView btnAll = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_distance_all);
+        TextView btnNear = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_distance_near);
+        TextView btnMid = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_distance_mid);
+        TextView btnFar = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_distance_far);
+
+        tvCurrent.setText("当前：" + getDistanceLabel(selectedDistanceMeters));
+        bindDistanceOption(btnAll, selectedDistanceMeters == 0.0);
+        bindDistanceOption(btnNear, selectedDistanceMeters == 5.0);
+        bindDistanceOption(btnMid, selectedDistanceMeters == 15.0);
+        bindDistanceOption(btnFar, selectedDistanceMeters == 100.0);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+
+        btnAll.setOnClickListener(v -> applyDistanceFilter(dialog, 0.0));
+        btnNear.setOnClickListener(v -> applyDistanceFilter(dialog, 5.0));
+        btnMid.setOnClickListener(v -> applyDistanceFilter(dialog, 15.0));
+        btnFar.setOnClickListener(v -> applyDistanceFilter(dialog, 100.0));
+
+        dialog.show();
+        resizeMaterialDialog(dialog);
+    }
+
+    private void bindDistanceOption(TextView view, boolean selected) {
+        view.setBackgroundResource(selected
+                ? org.zacsn.signal_dectect.R.drawable.bg_pill_blue
+                : org.zacsn.signal_dectect.R.drawable.bg_pill_gray);
+        view.setTextColor(androidx.core.content.ContextCompat.getColor(
+                this,
+                selected ? org.zacsn.signal_dectect.R.color.primary_variant
+                        : org.zacsn.signal_dectect.R.color.text_secondary
+        ));
+    }
+
+    private void applyDistanceFilter(AlertDialog dialog, double distanceMeters) {
+        selectedDistanceMeters = distanceMeters;
+        saveSelectedDistanceMeters(distanceMeters);
+        syncDistanceFilterToViewModel();
+        android.widget.Toast.makeText(
+                this,
+                "巡检距离: " + getDistanceLabel(distanceMeters),
+                android.widget.Toast.LENGTH_SHORT
+        ).show();
+        dialog.dismiss();
+    }
+
+    private double loadSelectedDistanceMeters() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getFloat(KEY_SELECTED_DISTANCE_METERS, DEFAULT_SELECTED_DISTANCE_METERS);
+    }
+
+    private void saveSelectedDistanceMeters(double distanceMeters) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putFloat(KEY_SELECTED_DISTANCE_METERS, (float) distanceMeters)
+                .apply();
+    }
+
+    private void syncDistanceFilterToViewModel() {
+        if (viewModel != null) {
+            viewModel.filterByRange(selectedDistanceMeters);
+        }
+    }
+
+    private String getDistanceLabel(double distanceMeters) {
+        if (distanceMeters <= 0) {
+            return "不限距离";
+        }
+        if (distanceMeters == 5.0) {
+            return "近距 ~5米";
+        }
+        if (distanceMeters == 15.0) {
+            return "中距 ~15米";
+        }
+        if (distanceMeters == 100.0) {
+            return "远距 ~100米";
+        }
+        return "~" + (int) distanceMeters + "米";
     }
 
     @Override
@@ -258,22 +363,103 @@ public class SignalInspectActivity extends AppCompatActivity {
                 soundEffectManager.stopAllSounds();
                 viewModel.stopScan();
             } else {
-                hasActiveConfiguredAlert = false;
-                alertedConfiguredDevices.clear();
-                highlightedTargetDevices.clear();
-                adapter.setHighlightedMacs(highlightedTargetDevices);
-                boolean soundStarted = soundEffectManager.startNormalScanSound();
-                if (!soundStarted) {
-                    android.widget.Toast.makeText(this, "巡检音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
-                }
-
-                boolean scanStarted = viewModel.startScan(scanType);
-                if (!scanStarted) {
-                    soundEffectManager.stopAllSounds();
-                    android.widget.Toast.makeText(this, "权限未授予，无法开始巡检", android.widget.Toast.LENGTH_SHORT).show();
-                }
+                requestStartNewScan();
             }
         });
+    }
+
+    private void requestStartNewScan() {
+        if (hasUnsavedScanResults()) {
+            showStartNewScanConfirmDialog();
+            return;
+        }
+        startNewScan();
+    }
+
+    private boolean hasUnsavedScanResults() {
+        return currentDevices != null && !currentDevices.isEmpty();
+    }
+
+    private void showStartNewScanConfirmDialog() {
+        showSavePromptDialog(
+                "保存扫描记录",
+                "开始新的巡检前，请处理当前结果",
+                "当前扫描列表中已有设备结果。开始新的巡检会清空列表，请先选择是否保存。",
+                "不保存",
+                "保存后开始",
+                this::startNewScan,
+                () -> showSaveRecordNameDialog(this::startNewScan, null)
+        );
+    }
+
+    private void showSavePromptDialog(
+            String title,
+            String subtitle,
+            String message,
+            String discardText,
+            String saveText,
+            Runnable onDiscard,
+            Runnable onSave
+    ) {
+        View dialogView = getLayoutInflater().inflate(
+                org.zacsn.signal_dectect.R.layout.dialog_save_scan_prompt,
+                null
+        );
+        TextView tvTitle = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_save_prompt_title);
+        TextView tvSubtitle = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_save_prompt_subtitle);
+        TextView tvCount = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_save_prompt_count);
+        TextView tvMessage = dialogView.findViewById(org.zacsn.signal_dectect.R.id.tv_save_prompt_message);
+        Button btnCancel = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_save_prompt_cancel);
+        Button btnDiscard = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_save_prompt_discard);
+        Button btnSave = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_save_prompt_save);
+
+        tvTitle.setText(title);
+        tvSubtitle.setText(subtitle);
+        tvCount.setText(currentDevices.size() + " 个");
+        tvMessage.setText(message);
+        btnDiscard.setText(discardText);
+        btnSave.setText(saveText);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnDiscard.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (onDiscard != null) {
+                onDiscard.run();
+            }
+        });
+        btnSave.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (onSave != null) {
+                onSave.run();
+            }
+        });
+
+        dialog.show();
+        resizeMaterialDialog(dialog);
+    }
+
+    private void startNewScan() {
+        hasActiveConfiguredAlert = false;
+        alertedConfiguredDevices.clear();
+        highlightedTargetDevices.clear();
+        adapter.setHighlightedMacs(highlightedTargetDevices);
+        scanStartTime = 0;
+        syncDistanceFilterToViewModel();
+        boolean soundStarted = soundEffectManager.startNormalScanSound();
+        if (!soundStarted) {
+            android.widget.Toast.makeText(this, "巡检音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
+        }
+
+        boolean scanStarted = viewModel.startScan(scanType);
+        if (!scanStarted) {
+            soundEffectManager.stopAllSounds();
+            android.widget.Toast.makeText(this, "权限未授予，无法开始巡检", android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
     
     private void observeViewModel() {
@@ -354,39 +540,62 @@ public class SignalInspectActivity extends AppCompatActivity {
             java.util.Set<String> nextMacs = new java.util.HashSet<>();
             java.util.Set<String> nextBrands = new java.util.HashSet<>();
             for (WatchlistItemEntity entity : entities) {
-                addMac(nextMacs, entity.getMacAddress());
-                addBrand(nextBrands, entity.getManufacturer());
-                addBrand(nextBrands, entity.getDeviceName());
-                addKeyword(nextKeywords, entity.getManufacturer());
-                addKeyword(nextKeywords, entity.getDeviceName());
+                String matchType = entity.getMatchType();
+                String matchValue = firstUseful(entity.getMatchValue(), entity.getMacAddress());
+                if ("MAC".equalsIgnoreCase(matchType)) {
+                    AlertRuleMatcher.addMac(nextMacs, matchValue);
+                } else if ("BRAND".equalsIgnoreCase(matchType)) {
+                    AlertRuleMatcher.addBrand(nextBrands, matchValue);
+                } else if ("KEYWORD".equalsIgnoreCase(matchType)) {
+                    AlertRuleMatcher.addKeyword(nextKeywords, matchValue);
+                } else {
+                    AlertRuleMatcher.addMac(nextMacs, entity.getMacAddress());
+                    AlertRuleMatcher.addBrand(nextBrands, entity.getManufacturer());
+                    AlertRuleMatcher.addBrand(nextBrands, entity.getDeviceName());
+                    AlertRuleMatcher.addKeyword(nextKeywords, entity.getManufacturer());
+                    AlertRuleMatcher.addKeyword(nextKeywords, entity.getDeviceName());
+                }
             }
             watchlistKeywords = nextKeywords;
             watchlistMacs = nextMacs;
             watchlistBrands = nextBrands;
+            rebuildAlertConfig();
         });
 
         whitelistDao.getAll().observe(this, entities -> {
             java.util.Set<String> nextMacs = new java.util.HashSet<>();
             for (WhitelistItemEntity entity : entities) {
-                addMac(nextMacs, entity.getMacAddress());
+                AlertRuleMatcher.addMac(nextMacs, entity.getMacAddress());
             }
             whitelistMacs = nextMacs;
+            rebuildAlertConfig();
         });
 
         blacklistDao.getAll().observe(this, entities -> {
             java.util.Set<String> nextMacs = new java.util.HashSet<>();
             for (BlacklistItemEntity entity : entities) {
-                addMac(nextMacs, entity.getMacAddress());
+                AlertRuleMatcher.addMac(nextMacs, entity.getMacAddress());
             }
             blacklistMacs = nextMacs;
+            rebuildAlertConfig();
         });
+    }
+
+    private void rebuildAlertConfig() {
+        alertConfig = new AlertConfig(
+                watchlistKeywords,
+                watchlistMacs,
+                watchlistBrands,
+                whitelistMacs,
+                blacklistMacs
+        );
     }
 
     private java.util.List<SignalDevice> refreshDeviceList() {
         java.util.List<SignalDevice> sortedDevices = new java.util.ArrayList<>(latestVisibleDevices);
         sortedDevices.sort((d1, d2) -> {
-            int targetPriority1 = highlightedTargetDevices.contains(normalizeMac(d1.getMacAddress())) ? 0 : 1;
-            int targetPriority2 = highlightedTargetDevices.contains(normalizeMac(d2.getMacAddress())) ? 0 : 1;
+            int targetPriority1 = highlightedTargetDevices.contains(AlertRuleMatcher.normalizeMac(d1.getMacAddress())) ? 0 : 1;
+            int targetPriority2 = highlightedTargetDevices.contains(AlertRuleMatcher.normalizeMac(d2.getMacAddress())) ? 0 : 1;
             if (targetPriority1 != targetPriority2) {
                 return Integer.compare(targetPriority1, targetPriority2);
             }
@@ -412,30 +621,17 @@ public class SignalInspectActivity extends AppCompatActivity {
         }
 
         for (SignalDevice device : devices) {
-            String macAddress = normalizeMac(device.getMacAddress());
-            if (macAddress.isEmpty() || whitelistMacs.contains(macAddress)) {
+            AlertMatch match = AlertRuleMatcher.match(device, alertConfig);
+            if (match == null) {
                 continue;
             }
 
-            String alertType = null;
-            String alertReason = null;
-            if (blacklistMacs.contains(macAddress)) {
-                alertType = "黑名单告警";
-                alertReason = "该设备 MAC 地址命中黑名单";
-            } else {
-                String matchedKeyword = findWatchlistMatch(device);
-                if (matchedKeyword != null) {
-                    alertType = "巡检机型告警";
-                    alertReason = "设备信息命中巡检机型: " + matchedKeyword;
-                }
-            }
-
-            if (alertType == null || alertedConfiguredDevices.contains(alertType + ":" + macAddress)) {
+            if (alertedConfiguredDevices.contains(match.getDedupKey())) {
                 continue;
             }
 
-            alertedConfiguredDevices.add(alertType + ":" + macAddress);
-            highlightedTargetDevices.add(macAddress);
+            alertedConfiguredDevices.add(match.getDedupKey());
+            highlightedTargetDevices.add(match.getNormalizedMac());
             adapter.setHighlightedMacs(highlightedTargetDevices);
             refreshDeviceList();
             if (!hasActiveConfiguredAlert) {
@@ -445,55 +641,8 @@ public class SignalInspectActivity extends AppCompatActivity {
                     android.widget.Toast.makeText(this, "告警音效启动失败，请检查媒体音量", android.widget.Toast.LENGTH_SHORT).show();
                 }
             }
-            showConfiguredAlert(device, alertType, alertReason);
+            showConfiguredAlert(device, match.getAlertType(), match.getAlertReason());
         }
-    }
-
-    private String findWatchlistMatch(SignalDevice device) {
-        String normalizedMac = normalizeMac(device.getMacAddress());
-        if (!normalizedMac.isEmpty() && watchlistMacs.contains(normalizedMac)) {
-            return normalizedMac + " (MAC精确命中)";
-        }
-
-        if (!isManufacturerAlertable(device)) {
-            return null;
-        }
-
-        String manufacturer = getAlertableManufacturer(device);
-        String brandKey = toBrandKey(manufacturer);
-        if (!brandKey.isEmpty() && watchlistBrands.contains(brandKey)) {
-            return getCanonicalBrandLabel(brandKey) + " (" + getManufacturerAlertLevelLabel(device) + ")";
-        }
-
-        String normalizedManufacturer = normalizeTextToken(manufacturer);
-        if (normalizedManufacturer.length() < 4) {
-            return null;
-        }
-
-        for (String keyword : watchlistKeywords) {
-            if (isStrongKeyword(keyword) && normalizedManufacturer.contains(normalizeTextToken(keyword))) {
-                return keyword + " (" + getManufacturerAlertLevelLabel(device) + ")";
-            }
-        }
-        return null;
-    }
-
-    private boolean isManufacturerAlertable(SignalDevice device) {
-        ManufacturerVerdict verdict = device.getManufacturerVerdict();
-        return verdict == ManufacturerVerdict.CONFIRMED || verdict == ManufacturerVerdict.LIKELY;
-    }
-
-    private String getManufacturerAlertLevelLabel(SignalDevice device) {
-        return device.getManufacturerVerdict() == ManufacturerVerdict.CONFIRMED
-                ? "厂商已确认"
-                : "厂商高可信";
-    }
-
-    private String getAlertableManufacturer(SignalDevice device) {
-        if (device.getManufacturerVerdict() == ManufacturerVerdict.CONFIRMED) {
-            return safeText(device.getManufacturer());
-        }
-        return safeText(device.getCandidateManufacturer());
     }
 
     private void showConfiguredAlert(SignalDevice device, String alertType, String alertReason) {
@@ -581,40 +730,25 @@ public class SignalInspectActivity extends AppCompatActivity {
         }
     }
 
-    private void addKeyword(java.util.Set<String> keywords, String value) {
-        String normalized = safeLower(value).trim();
-        if (isStrongKeyword(normalized)) {
-            keywords.add(normalized);
+    private void resizeMaterialDialog(AlertDialog dialog) {
+        if (dialog.getWindow() == null) {
+            return;
         }
-    }
-
-    private void addBrand(java.util.Set<String> brands, String value) {
-        String brand = toBrandKey(value);
-        if (!brand.isEmpty()) {
-            brands.add(brand);
-        }
-    }
-
-    private void addMac(java.util.Set<String> macs, String value) {
-        String normalized = normalizeMac(value);
-        if (!normalized.isEmpty()) {
-            macs.add(normalized);
-        }
-    }
-
-    private String normalizeMac(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.trim().replace("-", ":").toUpperCase(java.util.Locale.US);
-    }
-
-    private String safeLower(String value) {
-        return value == null ? "" : value.toLowerCase(java.util.Locale.US);
+        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+        android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        android.view.WindowManager.LayoutParams layoutParams = new android.view.WindowManager.LayoutParams();
+        layoutParams.copyFrom(dialog.getWindow().getAttributes());
+        layoutParams.width = (int) (displayMetrics.widthPixels * 0.88);
+        dialog.getWindow().setAttributes(layoutParams);
     }
 
     private String safeText(String value) {
         return value == null || value.trim().isEmpty() ? "未知" : value;
+    }
+
+    private String firstUseful(String first, String fallback) {
+        return first != null && !first.trim().isEmpty() ? first.trim() : fallback;
     }
 
     private String safeManufacturer(String value, String fallback) {
@@ -629,82 +763,6 @@ public class SignalInspectActivity extends AppCompatActivity {
         return trimmed;
     }
 
-    private boolean isStrongKeyword(String keyword) {
-        String normalized = normalizeTextToken(keyword);
-        return normalized.length() >= 4;
-    }
-
-    private String normalizeTextToken(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.toLowerCase(java.util.Locale.US).replaceAll("[^a-z0-9\\u4e00-\\u9fa5]+", "");
-    }
-
-    private String toBrandKey(String value) {
-        String normalized = normalizeTextToken(value);
-        if (normalized.isEmpty()) {
-            return "";
-        }
-        if (normalized.contains("apple") || normalized.contains("iphone") || normalized.contains("ipad")) {
-            return "apple";
-        }
-        if (normalized.contains("huawei") || normalized.contains("honor")) {
-            return "huawei";
-        }
-        if (normalized.contains("xiaomi") || normalized.contains("redmi")) {
-            return "xiaomi";
-        }
-        if (normalized.contains("samsung") || normalized.contains("galaxy")) {
-            return "samsung";
-        }
-        if (normalized.contains("oppo")) {
-            return "oppo";
-        }
-        if (normalized.contains("vivo") || normalized.contains("iqoo")) {
-            return "vivo";
-        }
-        if (normalized.contains("oneplus")) {
-            return "oneplus";
-        }
-        if (normalized.contains("google") || normalized.contains("pixel")) {
-            return "google";
-        }
-        if (normalized.contains("realme")) {
-            return "realme";
-        }
-        if (normalized.contains("microsoft")) {
-            return "microsoft";
-        }
-        return normalized.length() >= 4 ? normalized : "";
-    }
-
-    private String getCanonicalBrandLabel(String brandKey) {
-        switch (brandKey) {
-            case "apple":
-                return "Apple";
-            case "huawei":
-                return "Huawei/Honor";
-            case "xiaomi":
-                return "Xiaomi/Redmi";
-            case "samsung":
-                return "Samsung";
-            case "oppo":
-                return "OPPO";
-            case "vivo":
-                return "vivo/iQOO";
-            case "oneplus":
-                return "OnePlus";
-            case "google":
-                return "Google/Pixel";
-            case "realme":
-                return "realme";
-            case "microsoft":
-                return "Microsoft";
-            default:
-                return brandKey;
-        }
-    }
     
     @Override
     protected void onPause() {
@@ -727,26 +785,25 @@ public class SignalInspectActivity extends AppCompatActivity {
      * Show dialog to ask if user wants to save scan record.
      */
     private void showSaveRecordDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("保存扫描记录")
-                .setMessage("是否要保存本次扫描记录？\n\n设备数: " + currentDevices.size())
-                .setPositiveButton("保存", (dialog, which) -> {
-                    showSaveRecordNameDialog();
-                })
-                .setNegativeButton("不保存", (dialog, which) -> {
-                    finish();
-                })
-                .setNeutralButton("取消", (dialog, which) -> {
-                    dialog.dismiss();
-                })
-                .setCancelable(true)
-                .show();
+        showSavePromptDialog(
+                "保存扫描记录",
+                "退出巡检页面前，请处理当前结果",
+                "当前扫描列表中已有设备结果。直接退出不会保留本次扫描记录，请选择是否保存。",
+                "不保存退出",
+                "保存并退出",
+                this::finish,
+                () -> showSaveRecordNameDialog(this::finish, null)
+        );
     }
     
     /**
      * Show dialog to input record name.
      */
     private void showSaveRecordNameDialog() {
+        showSaveRecordNameDialog(this::finish, this::finish);
+    }
+
+    private void showSaveRecordNameDialog(Runnable afterSave, Runnable onCancel) {
         EditText editText = new EditText(this);
         editText.setHint("输入记录名称（可选）");
         
@@ -764,11 +821,12 @@ public class SignalInspectActivity extends AppCompatActivity {
                     if (recordName.isEmpty()) {
                         recordName = defaultName;
                     }
-                    saveRecord(recordName);
-                    finish();
+                    saveRecord(recordName, afterSave);
                 })
                 .setNegativeButton("取消", (dialog, which) -> {
-                    finish();
+                    if (onCancel != null) {
+                        onCancel.run();
+                    }
                 })
                 .show();
     }
@@ -777,9 +835,13 @@ public class SignalInspectActivity extends AppCompatActivity {
      * Save scan record to database.
      */
     private void saveRecord(String recordName) {
+        saveRecord(recordName, null);
+    }
+
+    private void saveRecord(String recordName, Runnable afterSave) {
         long timestamp = System.currentTimeMillis();
         int scanTypeInt = getScanTypeInt();
-        long duration = scanStartTime > 0 ? (timestamp - scanStartTime) / 1000 : 0;
+        long durationSeconds = scanStartTime > 0 ? (timestamp - scanStartTime) / 1000 : 0;
         int deviceCount = currentDevices.size();
         
         // Convert devices to JSON
@@ -789,7 +851,7 @@ public class SignalInspectActivity extends AppCompatActivity {
         ScanRecordEntity record = new ScanRecordEntity(
                 timestamp,
                 scanTypeInt,
-                duration,
+                durationSeconds,
                 null,  // latitude
                 null,  // longitude
                 deviceCount,
@@ -802,6 +864,9 @@ public class SignalInspectActivity extends AppCompatActivity {
             scanRecordDao.insertRecord(record);
             runOnUiThread(() -> {
                 android.widget.Toast.makeText(this, "记录已保存", android.widget.Toast.LENGTH_SHORT).show();
+                if (afterSave != null) {
+                    afterSave.run();
+                }
             });
         }).start();
     }

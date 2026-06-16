@@ -2,7 +2,13 @@ package org.zacsn.signal_dectect.presentation.activity;
 
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import org.zacsn.signal_dectect.R;
 import org.zacsn.signal_dectect.databinding.ActivityDeviceDetailBinding;
 import org.zacsn.signal_dectect.domain.model.ManufacturerVerdict;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
@@ -30,6 +36,7 @@ public class DeviceDetailActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("设备详情");
         }
+        binding.toolbar.setNavigationOnClickListener(v -> finish());
         
         // Get device data from intent
         loadDeviceData();
@@ -111,7 +118,12 @@ public class DeviceDetailActivity extends AppCompatActivity {
         } else {
             binding.labelDeviceName.setText("广播名称:");
         }
-        binding.tvDeviceName.setText(deviceName != null && !deviceName.isEmpty() ? deviceName : "Unknown Device");
+        String displayDeviceName = deviceName != null && !deviceName.isEmpty() ? deviceName : "Unknown Device";
+        binding.tvDeviceName.setText(displayDeviceName);
+        binding.layoutDeviceName.setOnClickListener(v -> showFullDeviceNameDialog(
+                isWifi ? "完整 SSID" : "完整广播名称",
+                displayDeviceName
+        ));
         
         binding.tvDistance.setText(DistanceUtils.formatMetersChinese(distance));
         binding.tvSignalStrengthValue.setText(signalStrength + " dBm");
@@ -168,6 +180,14 @@ public class DeviceDetailActivity extends AppCompatActivity {
         }
     }
 
+    private void showFullDeviceNameDialog(String title, String deviceName) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(deviceName != null && !deviceName.trim().isEmpty() ? deviceName : "未知")
+                .setPositiveButton("确定", null)
+                .show();
+    }
+
     private String getManufacturerSourceLabel(String source) {
         if (source == null) {
             return "来源未知";
@@ -192,6 +212,16 @@ public class DeviceDetailActivity extends AppCompatActivity {
                 return "WiFi随机BSSID";
             case "ble_company_id":
                 return "BLE广播厂商ID";
+            case "ble_apple_audio":
+                return "Apple音频设备画像";
+            case "ble_apple_findmy":
+                return "Apple定位设备画像";
+            case "ble_apple_handoff":
+                return "Apple Handoff画像";
+            case "ble_apple_nearby":
+                return "Apple Nearby画像";
+            case "ble_apple_protocol":
+                return "Apple生态协议";
             case "device_name":
                 return "设备名称";
             case "gatt_device_info":
@@ -250,30 +280,103 @@ public class DeviceDetailActivity extends AppCompatActivity {
         String displayManufacturer = isUsefulManufacturer(manufacturer) ? manufacturer : candidateManufacturer;
         boolean hasDisplayManufacturer = isUsefulManufacturer(displayManufacturer);
 
-        StringBuilder message = new StringBuilder();
-        message.append("判定结果: ").append(getManufacturerVerdictLabel(verdict)).append("\n")
-                .append("显示厂商: ").append(hasDisplayManufacturer ? displayManufacturer : "未知厂商").append("\n")
-                .append("确认厂商: ").append(isUsefulManufacturer(manufacturer) ? manufacturer : "未确认").append("\n")
-                .append("候选线索: ").append(isUsefulManufacturer(candidateManufacturer) ? candidateManufacturer : "无").append("\n");
-        if (hasDisplayManufacturer && manufacturerConfidence > 0) {
-            message.append(verdict == ManufacturerVerdict.POSSIBLE ? "线索可信度: " : "置信度: ")
-                    .append(manufacturerConfidence)
-                    .append("%\n");
-        } else {
-            message.append("置信度: 无明确厂商时不展示百分比\n");
-        }
-        message
-                .append("来源: ").append(getManufacturerSourceLabel(manufacturerSource));
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_manufacturer_detail, null);
+        TextView tvSubtitle = dialogView.findViewById(R.id.tv_manufacturer_dialog_subtitle);
+        TextView tvVerdict = dialogView.findViewById(R.id.tv_manufacturer_dialog_verdict);
+        TextView tvConfidence = dialogView.findViewById(R.id.tv_manufacturer_dialog_confidence);
+        TextView tvDisplay = dialogView.findViewById(R.id.tv_manufacturer_dialog_display);
+        TextView tvSource = dialogView.findViewById(R.id.tv_manufacturer_dialog_source);
+        TextView tvConfirmed = dialogView.findViewById(R.id.tv_manufacturer_dialog_confirmed);
+        TextView tvCandidate = dialogView.findViewById(R.id.tv_manufacturer_dialog_candidate);
+        TextView tvEvidence = dialogView.findViewById(R.id.tv_manufacturer_dialog_evidence);
+        Button btnOk = dialogView.findViewById(R.id.btn_manufacturer_dialog_ok);
 
-        if (manufacturerEvidence != null && !manufacturerEvidence.trim().isEmpty()) {
-            message.append("\n\n证据摘要:\n").append(manufacturerEvidence.trim());
-        }
+        tvSubtitle.setText(getManufacturerDialogSubtitle(verdict));
+        tvVerdict.setText(getManufacturerVerdictLabel(verdict));
+        tvConfidence.setText(buildConfidenceText(verdict, manufacturerConfidence, hasDisplayManufacturer));
+        tvDisplay.setText(hasDisplayManufacturer ? displayManufacturer : "未知厂商");
+        tvSource.setText("来源：" + getManufacturerSourceLabel(manufacturerSource));
+        tvConfirmed.setText("确认厂商：" + (isUsefulManufacturer(manufacturer) ? manufacturer : "未确认"));
+        tvCandidate.setText("候选线索：" + (isUsefulManufacturer(candidateManufacturer) ? candidateManufacturer : "无"));
+        tvEvidence.setText(
+                manufacturerEvidence != null && !manufacturerEvidence.trim().isEmpty()
+                        ? manufacturerEvidence.trim()
+                        : "暂无证据摘要"
+        );
+        applyVerdictStyle(dialogView, verdict);
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("厂商识别详情")
-                .setMessage(message.toString())
-                .setPositiveButton("知道了", null)
-                .show();
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+        btnOk.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
+        resizeManufacturerDialog(dialog, dialogView);
+    }
+
+    private String buildConfidenceText(ManufacturerVerdict verdict, int confidence, boolean hasDisplayManufacturer) {
+        if (!hasDisplayManufacturer || confidence <= 0) {
+            return "无明确厂商时不展示百分比";
+        }
+        return (verdict == ManufacturerVerdict.POSSIBLE ? "线索可信度 " : "置信度 ") + confidence + "%";
+    }
+
+    private String getManufacturerDialogSubtitle(ManufacturerVerdict verdict) {
+        switch (verdict) {
+            case CONFIRMED:
+                return "已获得较强厂商证据";
+            case LIKELY:
+                return "存在高可信厂商线索";
+            case POSSIBLE:
+                return "仅作为排查候选线索";
+            default:
+                return "暂无明确厂商证据";
+        }
+    }
+
+    private void applyVerdictStyle(View dialogView, ManufacturerVerdict verdict) {
+        TextView tvVerdict = dialogView.findViewById(R.id.tv_manufacturer_dialog_verdict);
+        TextView tvConfidence = dialogView.findViewById(R.id.tv_manufacturer_dialog_confidence);
+        int color;
+        switch (verdict) {
+            case CONFIRMED:
+                color = ContextCompat.getColor(this, R.color.success);
+                break;
+            case LIKELY:
+                color = ContextCompat.getColor(this, R.color.primary_variant);
+                break;
+            case POSSIBLE:
+                color = ContextCompat.getColor(this, R.color.warning);
+                break;
+            default:
+                color = ContextCompat.getColor(this, R.color.text_secondary);
+                break;
+        }
+        tvVerdict.setTextColor(color);
+        tvConfidence.setTextColor(color);
+    }
+
+    private void resizeManufacturerDialog(AlertDialog dialog, View dialogView) {
+        if (dialog.getWindow() == null) {
+            return;
+        }
+        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+        android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        android.view.WindowManager.LayoutParams layoutParams = new android.view.WindowManager.LayoutParams();
+        layoutParams.copyFrom(dialog.getWindow().getAttributes());
+        layoutParams.width = (int) (displayMetrics.widthPixels * 0.88);
+        dialog.getWindow().setAttributes(layoutParams);
+
+        View scroll = dialogView.findViewById(R.id.manufacturer_detail_scroll);
+        int maxHeight = (int) (displayMetrics.heightPixels * 0.48);
+        scroll.post(() -> {
+            if (scroll.getMeasuredHeight() > maxHeight) {
+                android.view.ViewGroup.LayoutParams lp = scroll.getLayoutParams();
+                lp.height = maxHeight;
+                scroll.setLayoutParams(lp);
+            }
+        });
     }
 
     private ManufacturerVerdict parseManufacturerVerdict(String verdictName, String source, int confidence) {

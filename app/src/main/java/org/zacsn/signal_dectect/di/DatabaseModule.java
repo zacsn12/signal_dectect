@@ -38,6 +38,27 @@ public class DatabaseModule {
             database.execSQL("ALTER TABLE scan_records ADD COLUMN name TEXT");
         }
     };
+
+    private static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE watchlist ADD COLUMN matchType TEXT");
+            database.execSQL("ALTER TABLE watchlist ADD COLUMN matchValue TEXT");
+            database.execSQL("ALTER TABLE watchlist ADD COLUMN displayName TEXT");
+            database.execSQL(
+                    "UPDATE watchlist SET "
+                            + "matchValue = macAddress, "
+                            + "displayName = CASE "
+                            + "WHEN deviceName IS NOT NULL AND LENGTH(TRIM(deviceName)) > 0 THEN deviceName "
+                            + "WHEN manufacturer IS NOT NULL AND LENGTH(TRIM(manufacturer)) > 0 THEN manufacturer "
+                            + "ELSE macAddress END, "
+                            + "matchType = CASE "
+                            + "WHEN macAddress GLOB '[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]' THEN 'MAC' "
+                            + "WHEN macAddress GLOB '[0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f]-[0-9A-Fa-f][0-9A-Fa-f]' THEN 'MAC' "
+                            + "ELSE 'KEYWORD' END"
+            );
+        }
+    };
     
     /**
      * Provides the singleton AppDatabase instance.
@@ -54,6 +75,7 @@ public class DatabaseModule {
             AppDatabase.DATABASE_NAME
         )
         .addMigrations(MIGRATION_1_2)
+        .addMigrations(MIGRATION_2_3)
         .build();
     }
     

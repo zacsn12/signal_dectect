@@ -11,7 +11,7 @@ public class ScanRecord {
     private long id;
     private long timestamp;
     private ScanType scanType;
-    private long duration; // milliseconds
+    private long duration; // seconds
     private Double latitude;
     private Double longitude;
     private int deviceCount;

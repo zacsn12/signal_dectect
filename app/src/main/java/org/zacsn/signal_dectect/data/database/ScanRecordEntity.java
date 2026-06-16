@@ -18,7 +18,7 @@ public class ScanRecordEntity {
     
     private int scanType; // Bitmask: 1=BT, 2=WiFi, 4=Cellular
     
-    private long duration; // milliseconds
+    private long duration; // seconds
     
     private Double latitude;
     

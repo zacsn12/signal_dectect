@@ -36,6 +36,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
 public class WiFiScanController {
     private static final String TAG = "WiFiScanController";
     private static final long WIFI_SCAN_INTERVAL_MS = 10_000L;
+    private static final long WIFI_THROTTLE_WARNING_INTERVAL_MS = 60_000L;
     
     private final Context context;
     private final WifiManager wifiManager;
@@ -47,6 +48,7 @@ public class WiFiScanController {
     private boolean isScanning = false;
     private ScanListener scanListener;
     private Runnable periodicScanRunnable;
+    private long lastThrottleWarningAt = 0L;
     
     public interface ScanListener {
         void onDeviceFound(SignalDevice device);
@@ -176,6 +178,7 @@ public class WiFiScanController {
                 if (isScanning) {
                     boolean scanStarted = wifiManager.startScan();
                     if (!scanStarted) {
+                        emitThrottledWarning();
                         processScanResults();
                     }
                     handler.postDelayed(this, WIFI_SCAN_INTERVAL_MS);
@@ -234,6 +237,17 @@ public class WiFiScanController {
     
     public boolean isScanning() {
         return isScanning;
+    }
+
+    private void emitThrottledWarning() {
+        long now = System.currentTimeMillis();
+        if (now - lastThrottleWarningAt < WIFI_THROTTLE_WARNING_INTERVAL_MS) {
+            return;
+        }
+        lastThrottleWarningAt = now;
+        if (scanListener != null) {
+            scanListener.onScanError("WiFi主动扫描受系统限制，正在展示最近一次扫描结果");
+        }
     }
 
     private boolean isKnownManufacturer(String manufacturer) {

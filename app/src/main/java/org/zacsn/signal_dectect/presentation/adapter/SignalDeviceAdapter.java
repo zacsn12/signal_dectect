@@ -229,6 +229,16 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
                     return "设备名称线索";
                 case "ble_company_id":
                     return "BLE广播Company ID";
+                case "ble_apple_audio":
+                    return "Apple音频设备画像";
+                case "ble_apple_findmy":
+                    return "Apple定位设备画像";
+                case "ble_apple_handoff":
+                    return "Apple Handoff画像";
+                case "ble_apple_nearby":
+                    return "Apple Nearby画像";
+                case "ble_apple_protocol":
+                    return "Apple生态协议";
                 case "mac_oui":
                     return "MAC OUI线索";
                 case "ble_mac_oui":

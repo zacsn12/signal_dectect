@@ -64,6 +64,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
                     android:text="Device Name"
                     android:textSize="16sp"
                     android:fontFamily="sans-serif-black"
@@ -101,6 +103,8 @@
                 android:textSize="12sp"
                 android:fontFamily="monospace"
                 android:textColor="#64748B"
+                android:ellipsize="middle"
+                android:maxLines="1"
                 android:layout_marginTop="2dp" />
 
             <LinearLayout
@@ -117,6 +121,7 @@
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_pill_gray"
                     android:fontFamily="sans-serif-bold"
+                    android:maxLines="1"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="3dp"
                     android:text="未知厂商"
@@ -165,6 +170,7 @@
                     android:background="@drawable/bg_pill_gray"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="3dp"
+                    android:maxLines="1"
                     android:textColor="#475569"
                     android:textSize="11sp"
                     android:fontFamily="sans-serif-bold"

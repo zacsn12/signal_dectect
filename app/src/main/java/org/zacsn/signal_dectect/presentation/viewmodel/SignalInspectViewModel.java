@@ -41,6 +41,7 @@ public class SignalInspectViewModel extends ViewModel {
     private final MutableLiveData<List<SignalDevice>> devices = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<Long> scanDuration = new MutableLiveData<>(0L);
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
+    private List<SignalDevice> rawDevices = new ArrayList<>();
     
     private long scanStartTime = 0;
     private DeviceType filterType = null;
@@ -66,6 +67,7 @@ public class SignalInspectViewModel extends ViewModel {
     
     public boolean startScan(ScanType scanType) {
         // Clear device list before starting new scan
+        rawDevices = new ArrayList<>();
         devices.setValue(new ArrayList<>());
         
         boolean success = startScanUseCase.execute(scanType, new ScanRepository.ScanCallback() {
@@ -76,8 +78,8 @@ public class SignalInspectViewModel extends ViewModel {
             
             @Override
             public void onDeviceListUpdated(List<SignalDevice> deviceList) {
-                List<SignalDevice> filtered = applyFilters(deviceList);
-                devices.postValue(filtered);
+                rawDevices = new ArrayList<>(deviceList);
+                devices.postValue(applyFilters(rawDevices));
             }
 
             @Override
@@ -123,18 +125,12 @@ public class SignalInspectViewModel extends ViewModel {
     
     public void filterByType(DeviceType type) {
         this.filterType = type;
-        List<SignalDevice> currentDevices = devices.getValue();
-        if (currentDevices != null) {
-            devices.setValue(applyFilters(currentDevices));
-        }
+        devices.setValue(applyFilters(rawDevices));
     }
     
     public void filterByRange(double maxDistance) {
-        this.maxDistance = maxDistance;
-        List<SignalDevice> currentDevices = devices.getValue();
-        if (currentDevices != null) {
-            devices.setValue(applyFilters(currentDevices));
-        }
+        this.maxDistance = maxDistance > 0 ? maxDistance : null;
+        devices.setValue(applyFilters(rawDevices));
     }
     
     private List<SignalDevice> applyFilters(List<SignalDevice> deviceList) {

@@ -39,7 +39,7 @@ public class SignalScanService extends Service {
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL_ID = "signal_scan_channel";
     private static final long STALE_PRUNE_INTERVAL_MS = 1_000L;
-    private static final long BLE_STALE_TIMEOUT_MS = 8_000L;
+    private static final long BLE_STALE_TIMEOUT_MS = 20_000L;
     private static final long CLASSIC_BT_STALE_TIMEOUT_MS = 18_000L;
     private static final long WIFI_STALE_TIMEOUT_MS = 25_000L;
     private static final long CELLULAR_STALE_TIMEOUT_MS = 30_000L;

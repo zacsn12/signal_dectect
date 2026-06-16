@@ -95,7 +95,10 @@ public class EntityMappers {
             device.getDeviceName(),
             device.getDeviceType().name().toLowerCase(),
             device.getManufacturer(),
-            System.currentTimeMillis()
+            System.currentTimeMillis(),
+            "MAC",
+            device.getMacAddress(),
+            device.getDeviceName()
         );
     }
 

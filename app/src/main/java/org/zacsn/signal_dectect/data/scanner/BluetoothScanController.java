@@ -50,12 +50,18 @@ public class BluetoothScanController {
     private static final String TAG = "BluetoothScanController";
     private static final long CLASSIC_DISCOVERY_RESTART_DELAY_MS = 1_000L;
     private static final long GATT_PROBE_TIMEOUT_MS = 10_000L;
-    private static final int MAX_CONCURRENT_GATT_PROBES = 2;
-    private static final int MIN_GATT_PROBE_RSSI_DBM = -85;
+    private static final int MAX_CONCURRENT_GATT_PROBES = 4;
+    private static final int MIN_GATT_PROBE_RSSI_DBM = -90;
     private static final int DEFAULT_BLUETOOTH_TX_POWER_DBM = -59;
     private static final int MIN_REASONABLE_TX_POWER_DBM = -80;
     private static final int MAX_REASONABLE_TX_POWER_DBM = -35;
     private static final double BLUETOOTH_PATH_LOSS_EXPONENT = 2.5;
+    private static final long APPLE_PRIVACY_ALIAS_WINDOW_MS = 20_000L;
+    private static final int APPLE_PRIVACY_ALIAS_MAX_RSSI_DELTA_DBM = 12;
+    private static final UUID GENERIC_ACCESS_SERVICE_UUID =
+        UUID.fromString("00001800-0000-1000-8000-00805f9b34fb");
+    private static final UUID GAP_DEVICE_NAME_UUID =
+        UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb");
     private static final UUID DEVICE_INFORMATION_SERVICE_UUID =
         UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb");
     private static final UUID MANUFACTURER_NAME_UUID =
@@ -69,6 +75,7 @@ public class BluetoothScanController {
     private final BluetoothAdapter bluetoothAdapter;
     private final ExternalRadioAdapterManager externalAdapterManager;
     private final ConcurrentHashMap<String, SignalDevice> deviceMap;
+    private final ConcurrentHashMap<String, String> blePrivacyAddressAliases = new ConcurrentHashMap<>();
     private final java.util.Set<String> gattProbeStarted = ConcurrentHashMap.newKeySet();
     private final Queue<GattProbeRequest> pendingGattProbes = new ConcurrentLinkedQueue<>();
     private final java.util.Set<String> queuedGattProbes = ConcurrentHashMap.newKeySet();
@@ -129,6 +136,7 @@ public class BluetoothScanController {
         
         isScanning = true;
         deviceMap.clear();
+        blePrivacyAddressAliases.clear();
         gattProbeStarted.clear();
         
         startBleScan();
@@ -206,9 +214,10 @@ public class BluetoothScanController {
         if (macAddress == null || macAddress.isEmpty()) {
             return;
         }
-        String deviceKey = macAddress.toUpperCase(Locale.US);
-        SignalDevice previous = deviceMap.get(deviceKey);
-        int rssi = SignalDeviceStabilizer.smoothSignalStrength(previous, result.getRssi());
+        String rawDeviceKey = macAddress.toUpperCase(Locale.US);
+        SignalDevice previous = deviceMap.get(rawDeviceKey);
+        int rawRssi = result.getRssi();
+        int rssi = SignalDeviceStabilizer.smoothSignalStrength(previous, rawRssi);
 
         ScanRecord scanRecord = result.getScanRecord();
 
@@ -222,20 +231,43 @@ public class BluetoothScanController {
             deviceName = getBluetoothDeviceName(device);
         }
         ManufacturerEvidence manufacturerEvidence = evaluatePassiveManufacturer(
-            deviceKey,
+            rawDeviceKey,
             scanRecord,
             deviceName,
             DeviceType.BLUETOOTH_LE
         );
+        BleBroadcastHint broadcastHint = inferBleBroadcastHint(result, scanRecord);
+        String deviceKey = resolveBleDeviceKey(rawDeviceKey, broadcastHint, rawRssi);
+        previous = deviceMap.get(deviceKey);
+        rssi = SignalDeviceStabilizer.smoothSignalStrength(previous, rawRssi);
+        manufacturerEvidence = manufacturerEvidence.better(broadcastHint.evidence);
+        if (!rawDeviceKey.equals(deviceKey)) {
+            manufacturerEvidence = new ManufacturerEvidence(
+                    manufacturerEvidence.manufacturer,
+                    manufacturerEvidence.source,
+                    manufacturerEvidence.confidence,
+                    manufacturerEvidence.verdict,
+                    appendEvidence(
+                            manufacturerEvidence.evidence,
+                            "已融合Apple随机地址广播: " + rawDeviceKey
+                    )
+            );
+        }
         deviceName = resolveBluetoothDeviceName(
-            deviceName,
-            manufacturerEvidence.manufacturer,
+            isUsefulDeviceName(deviceName) ? deviceName : broadcastHint.displayName,
+            broadcastHint.displayManufacturer != null
+                    ? broadcastHint.displayManufacturer
+                    : manufacturerEvidence.manufacturer,
             DeviceType.BLUETOOTH_LE
         );
+        if (!rawDeviceKey.equals(deviceKey) && deviceName != null && !deviceName.contains("融合")) {
+            deviceName = deviceName + "（融合广播）";
+        }
 
         long now = System.currentTimeMillis();
+        String displayMacAddress = previous != null ? previous.getMacAddress() : rawDeviceKey;
         SignalDevice signalDevice = new SignalDevice(
-            deviceKey,
+            displayMacAddress,
             deviceName,
             DeviceType.BLUETOOTH_LE,
             "未确认",
@@ -259,7 +291,105 @@ public class BluetoothScanController {
         if (scanListener != null) {
             scanListener.onDeviceFound(signalDevice);
         }
-        enqueueGattManufacturerProbe(device, deviceKey, rssi);
+        enqueueGattManufacturerProbe(device, rawDeviceKey, rssi);
+    }
+
+    private String resolveBleDeviceKey(String rawDeviceKey, BleBroadcastHint broadcastHint, int rssi) {
+        String existingAlias = blePrivacyAddressAliases.get(rawDeviceKey);
+        if (existingAlias != null && deviceMap.containsKey(existingAlias)) {
+            return existingAlias;
+        }
+
+        if (!isApplePrivacyMobileHint(broadcastHint)) {
+            return rawDeviceKey;
+        }
+        if (!isLocallyAdministeredAddress(rawDeviceKey)) {
+            return rawDeviceKey;
+        }
+
+        long now = System.currentTimeMillis();
+        String matchedKey = null;
+        SignalDevice matchedDevice = null;
+        int matchedCount = 0;
+        int bestRssiDelta = Integer.MAX_VALUE;
+
+        for (java.util.Map.Entry<String, SignalDevice> entry : deviceMap.entrySet()) {
+            SignalDevice candidate = entry.getValue();
+            if (!isApplePrivacyMobileDevice(candidate)) {
+                continue;
+            }
+            if (rawDeviceKey.equals(candidate.getMacAddress())) {
+                continue;
+            }
+            if (!isLocallyAdministeredAddress(candidate.getMacAddress())) {
+                continue;
+            }
+            if (now - candidate.getLastSeen() > APPLE_PRIVACY_ALIAS_WINDOW_MS) {
+                continue;
+            }
+            if (Math.abs(candidate.getSignalStrength() - rssi) > APPLE_PRIVACY_ALIAS_MAX_RSSI_DELTA_DBM) {
+                continue;
+            }
+            if (sameApplePrivacySource(candidate.getManufacturerSource(), broadcastHint.evidence.source)) {
+                continue;
+            }
+
+            matchedCount++;
+            int rssiDelta = Math.abs(candidate.getSignalStrength() - rssi);
+            if (rssiDelta < bestRssiDelta) {
+                bestRssiDelta = rssiDelta;
+                matchedKey = entry.getKey();
+                matchedDevice = candidate;
+            }
+        }
+
+        if (matchedCount == 1 && matchedKey != null && matchedDevice != null) {
+            blePrivacyAddressAliases.put(rawDeviceKey, matchedKey);
+            Log.d(TAG, "Aliasing Apple BLE privacy address " + rawDeviceKey
+                    + " to " + matchedDevice.getMacAddress()
+                    + " based on " + matchedDevice.getManufacturerSource()
+                    + " + " + broadcastHint.evidence.source);
+            return matchedKey;
+        }
+
+        if (matchedCount > 1) {
+            Log.d(TAG, "Keeping Apple BLE privacy address " + rawDeviceKey
+                    + " separate because " + matchedCount + " compatible candidates were nearby");
+        }
+
+        return rawDeviceKey;
+    }
+
+    private boolean isApplePrivacyMobileHint(BleBroadcastHint broadcastHint) {
+        return broadcastHint != null
+                && broadcastHint.evidence != null
+                && ("ble_apple_nearby".equals(broadcastHint.evidence.source)
+                || "ble_apple_findmy".equals(broadcastHint.evidence.source));
+    }
+
+    private boolean isApplePrivacyMobileDevice(SignalDevice device) {
+        return device != null
+                && device.getDeviceType() == DeviceType.BLUETOOTH_LE
+                && ("ble_apple_nearby".equals(device.getManufacturerSource())
+                || "ble_apple_findmy".equals(device.getManufacturerSource()))
+                && isKnownManufacturer(device.getCandidateManufacturer())
+                && BluetoothManufacturerUtils.isSameManufacturer(device.getCandidateManufacturer(), "Apple, Inc.");
+    }
+
+    private boolean sameApplePrivacySource(String first, String second) {
+        return first != null && first.equals(second);
+    }
+
+    private boolean isLocallyAdministeredAddress(String macAddress) {
+        if (macAddress == null || macAddress.length() < 2) {
+            return false;
+        }
+        try {
+            int firstOctet = Integer.parseInt(macAddress.substring(0, 2), 16);
+            return (firstOctet & 0x02) != 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     
@@ -426,15 +556,17 @@ public class BluetoothScanController {
 
                     android.bluetooth.BluetoothGattService service =
                         gatt.getService(DEVICE_INFORMATION_SERVICE_UUID);
-                    if (service == null) {
-                        closeGatt(gatt);
-                        return;
-                    }
-
                     GattProbeSession session = new GattProbeSession(deviceKey);
-                    addReadableCharacteristic(session, service.getCharacteristic(MANUFACTURER_NAME_UUID));
-                    addReadableCharacteristic(session, service.getCharacteristic(MODEL_NUMBER_UUID));
-                    addReadableCharacteristic(session, service.getCharacteristic(PNP_ID_UUID));
+                    android.bluetooth.BluetoothGattService gapService =
+                        gatt.getService(GENERIC_ACCESS_SERVICE_UUID);
+                    if (gapService != null) {
+                        addReadableCharacteristic(session, gapService.getCharacteristic(GAP_DEVICE_NAME_UUID));
+                    }
+                    if (service != null) {
+                        addReadableCharacteristic(session, service.getCharacteristic(MANUFACTURER_NAME_UUID));
+                        addReadableCharacteristic(session, service.getCharacteristic(MODEL_NUMBER_UUID));
+                        addReadableCharacteristic(session, service.getCharacteristic(PNP_ID_UUID));
+                    }
 
                     if (session.pendingReads.isEmpty()) {
                         closeGatt(gatt);
@@ -535,7 +667,9 @@ public class BluetoothScanController {
 
         if (status == BluetoothGatt.GATT_SUCCESS && characteristic != null && value != null) {
             UUID uuid = characteristic.getUuid();
-            if (MANUFACTURER_NAME_UUID.equals(uuid)) {
+            if (GAP_DEVICE_NAME_UUID.equals(uuid)) {
+                session.gapDeviceName = readGattString(value);
+            } else if (MANUFACTURER_NAME_UUID.equals(uuid)) {
                 session.manufacturerName = readGattString(value);
             } else if (MODEL_NUMBER_UUID.equals(uuid)) {
                 session.modelNumber = readGattString(value);
@@ -575,9 +709,7 @@ public class BluetoothScanController {
 
         SignalDevice confirmed = new SignalDevice(
             current.getMacAddress(),
-            shouldReplaceNameWithConfirmedManufacturer(current.getDeviceName(), current.getCandidateManufacturer())
-                    ? evidence.manufacturer
-                    : current.getDeviceName(),
+            resolveGattDeviceName(current, session, evidence),
             current.getDeviceType(),
             evidence.verdict == ManufacturerVerdict.CONFIRMED ? evidence.manufacturer : "未确认",
             evidence.manufacturer,
@@ -599,6 +731,23 @@ public class BluetoothScanController {
         if (scanListener != null) {
             scanListener.onDeviceFound(confirmed);
         }
+    }
+
+    private String resolveGattDeviceName(
+            SignalDevice current,
+            GattProbeSession session,
+            ManufacturerEvidence evidence
+    ) {
+        if (session != null && isUsefulDeviceName(session.gapDeviceName)) {
+            return session.gapDeviceName.trim();
+        }
+        if (session != null && isUsefulDeviceName(session.modelNumber)
+                && shouldReplaceNameWithConfirmedManufacturer(current.getDeviceName(), current.getCandidateManufacturer())) {
+            return session.modelNumber.trim();
+        }
+        return shouldReplaceNameWithConfirmedManufacturer(current.getDeviceName(), current.getCandidateManufacturer())
+                ? evidence.manufacturer
+                : current.getDeviceName();
     }
 
     private String readGattString(byte[] value) {
@@ -848,6 +997,186 @@ public class BluetoothScanController {
         return best;
     }
 
+    private BleBroadcastHint inferBleBroadcastHint(ScanResult result, ScanRecord scanRecord) {
+        if (result == null || scanRecord == null) {
+            return BleBroadcastHint.none();
+        }
+
+        SparseArray<byte[]> manufacturerData = scanRecord.getManufacturerSpecificData();
+        if (manufacturerData == null || manufacturerData.size() == 0) {
+            return BleBroadcastHint.none();
+        }
+
+        byte[] appleData = scanRecord.getManufacturerSpecificData(0x004C);
+        if (appleData != null && appleData.length > 0) {
+            AppleBleProfile profile = classifyAppleBleProfile(appleData);
+            return new BleBroadcastHint(
+                    profile.displayName,
+                    profile.appleDeviceCandidate ? "Apple, Inc." : null,
+                    new ManufacturerEvidence(
+                            profile.appleDeviceCandidate ? "Apple, Inc." : "未确认",
+                            profile.source,
+                            profile.confidence,
+                            profile.verdict,
+                            profile.evidence
+                    )
+            );
+        }
+
+        byte[] huaweiData = scanRecord.getManufacturerSpecificData(0x027D);
+        if (huaweiData == null) {
+            huaweiData = scanRecord.getManufacturerSpecificData(0x0589);
+        }
+        if (huaweiData != null && huaweiData.length > 0) {
+            return new BleBroadcastHint(
+                    "Huawei生态BLE广播",
+                    "Huawei Technologies Co., Ltd.",
+                    ManufacturerEvidence.possible(
+                            "Huawei Technologies Co., Ltd.",
+                            "ble_huawei_ecosystem",
+                            62,
+                            "BLE广播包含Huawei Company ID: " + BluetoothManufacturerUtils.getCompanyIdHex(0x027D)
+                    )
+            );
+        }
+
+        return BleBroadcastHint.none();
+    }
+
+    private AppleBleProfile classifyAppleBleProfile(byte[] data) {
+        int type = data[0] & 0xFF;
+        String typeHex = String.format(Locale.US, "%02X", type);
+        if (isAppleIBeaconPayload(data)) {
+            return new AppleBleProfile(
+                    "iBeacon广播",
+                    false,
+                    "ble_apple_protocol",
+                    40,
+                    ManufacturerVerdict.POSSIBLE,
+                    "BLE Manufacturer Data使用Apple iBeacon格式，payloadType=0x" + typeHex
+                            + "。iBeacon可由第三方设备广播，不作为Apple整机厂商证据"
+            );
+        }
+        switch (type) {
+            case 0x01:
+            case 0x07:
+                return new AppleBleProfile(
+                        "疑似AirPods/Apple音频设备",
+                        true,
+                        "ble_apple_audio",
+                        72,
+                        ManufacturerVerdict.POSSIBLE,
+                        "BLE广播匹配Apple音频设备画像，payloadType=0x" + typeHex
+                );
+            case 0x12:
+                return new AppleBleProfile(
+                        "疑似Apple设备",
+                        true,
+                        "ble_apple_findmy",
+                        82,
+                        ManufacturerVerdict.LIKELY,
+                        "BLE广播匹配Apple Find My设备画像，payloadType=0x" + typeHex
+                );
+            case 0x16:
+                return new AppleBleProfile(
+                        "疑似Apple设备",
+                        true,
+                        "ble_apple_handoff",
+                        78,
+                        ManufacturerVerdict.POSSIBLE,
+                        "BLE广播匹配Apple Handoff画像"
+                                + getAppleHandoffEvidenceSuffix(data)
+                                + "，payloadType=0x" + typeHex
+                );
+            case 0x10:
+                return new AppleBleProfile(
+                        "疑似Apple设备",
+                        true,
+                        "ble_apple_nearby",
+                        82,
+                        ManufacturerVerdict.LIKELY,
+                        "BLE广播匹配Apple Nearby移动设备画像，payloadType=0x" + typeHex
+                );
+            case 0x0B:
+            case 0x0D:
+            case 0x0E:
+                return new AppleBleProfile(
+                        "Apple车载/生态协议广播",
+                        false,
+                        "ble_apple_protocol",
+                        45,
+                        ManufacturerVerdict.POSSIBLE,
+                        "BLE广播匹配Apple生态协议类型，可能由车载或第三方生态设备产生，payloadType=0x" + typeHex
+                );
+            case 0x05:
+                return new AppleBleProfile(
+                        "Apple生态协议广播",
+                        false,
+                        "ble_apple_protocol",
+                        45,
+                        ManufacturerVerdict.POSSIBLE,
+                        "BLE广播匹配Apple生态协议类型，但不足以判断整机厂商，payloadType=0x" + typeHex
+                );
+            default:
+                return new AppleBleProfile(
+                        "Apple生态协议广播",
+                        false,
+                        "ble_apple_protocol",
+                        40,
+                        ManufacturerVerdict.POSSIBLE,
+                        "BLE Manufacturer Data使用Apple Company ID，但payload类型未归入Apple设备画像，payloadType=0x"
+                                + typeHex
+                );
+        }
+    }
+
+    private boolean isAppleIBeaconPayload(byte[] data) {
+        return data != null
+                && data.length >= 23
+                && (data[0] & 0xFF) == 0x02
+                && (data[1] & 0xFF) == 0x15;
+    }
+
+    private String getAppleHandoffDisplayName(byte[] data) {
+        int deviceClass = findLikelyAppleDeviceClass(data);
+        switch (deviceClass) {
+            case 0x01:
+                return "疑似Mac Handoff广播";
+            case 0x02:
+                return "疑似iPhone Handoff广播";
+            case 0x03:
+                return "疑似iPad Handoff广播";
+            case 0x04:
+                return "疑似Apple Watch Handoff广播";
+            case 0x09:
+                return "疑似Apple TV Handoff广播";
+            default:
+                return "疑似Apple Handoff广播";
+        }
+    }
+
+    private String getAppleHandoffEvidenceSuffix(byte[] data) {
+        int deviceClass = findLikelyAppleDeviceClass(data);
+        if (deviceClass < 0) {
+            return "";
+        }
+        return "，deviceClass=0x" + String.format(Locale.US, "%02X", deviceClass);
+    }
+
+    private int findLikelyAppleDeviceClass(byte[] data) {
+        if (data == null || data.length < 4) {
+            return -1;
+        }
+        for (int i = 2; i < data.length; i++) {
+            int value = data[i] & 0xFF;
+            if (value == 0x01 || value == 0x02 || value == 0x03
+                    || value == 0x04 || value == 0x09) {
+                return value;
+            }
+        }
+        return -1;
+    }
+
     private ManufacturerEvidence evaluateGattManufacturer(
             SignalDevice current,
             String manufacturerName,
@@ -963,6 +1292,7 @@ public class BluetoothScanController {
     private static final class GattProbeSession {
         private final String deviceKey;
         private final ArrayDeque<BluetoothGattCharacteristic> pendingReads = new ArrayDeque<>();
+        private String gapDeviceName;
         private String manufacturerName;
         private String modelNumber;
         private byte[] pnpId;
@@ -970,6 +1300,51 @@ public class BluetoothScanController {
 
         private GattProbeSession(String deviceKey) {
             this.deviceKey = deviceKey;
+        }
+    }
+
+    private static final class BleBroadcastHint {
+        private final String displayName;
+        private final String displayManufacturer;
+        private final ManufacturerEvidence evidence;
+
+        private BleBroadcastHint(
+                String displayName,
+                String displayManufacturer,
+                ManufacturerEvidence evidence
+        ) {
+            this.displayName = displayName;
+            this.displayManufacturer = displayManufacturer;
+            this.evidence = evidence;
+        }
+
+        private static BleBroadcastHint none() {
+            return new BleBroadcastHint(null, null, null);
+        }
+    }
+
+    private static final class AppleBleProfile {
+        private final String displayName;
+        private final boolean appleDeviceCandidate;
+        private final String source;
+        private final int confidence;
+        private final ManufacturerVerdict verdict;
+        private final String evidence;
+
+        private AppleBleProfile(
+                String displayName,
+                boolean appleDeviceCandidate,
+                String source,
+                int confidence,
+                ManufacturerVerdict verdict,
+                String evidence
+        ) {
+            this.displayName = displayName;
+            this.appleDeviceCandidate = appleDeviceCandidate;
+            this.source = source;
+            this.confidence = confidence;
+            this.verdict = verdict;
+            this.evidence = evidence;
         }
     }
 

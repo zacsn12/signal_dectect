@@ -227,7 +227,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="BLE 广播里的 Apple Inc 通常来自 Bluetooth Company ID。它只能说明这段广播数据使用了 Apple 分配的 Company ID，不能单独证明整机是苹果设备。\n\n例如 iBeacon 格式会使用 Apple Company ID，但实际发射设备可能是第三方信标、传感器或开发板。因此系统会避免把这类广播直接判定为苹果设备，必须结合 GATT、PnP ID、设备名称等更强证据。"
+                    android:text="BLE 广播里的 Apple Inc 通常来自 Bluetooth Company ID。它只能说明这段广播数据使用了 Apple 分配的 Company ID，不能单独证明整机是苹果设备。\n\n系统会继续解析 Apple Manufacturer Data 的 payload type：type=0x10、type=0x12 和 type=0x16 会在列表中统一显示为“疑似Apple设备”，方便巡检时快速识别；AirPods 等音频画像会单独标记。\n\n需要注意：iBeacon 和未知 Apple 生态协议广播仍可能来自第三方信标、传感器或开发板，因此不会仅凭 Apple Company ID 直接判定为苹果整机。执行告警时仍以“已确认厂商”或“高可信疑似”为准。"
                     android:textColor="#475569"
                     android:textSize="14sp" />
             </LinearLayout>

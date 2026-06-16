@@ -130,7 +130,14 @@ public class SessionManager {
     }
 
     public void logout() {
-        prefs.edit().putBoolean(KEY_IS_LOGGED_IN, false).apply();
+        prefs.edit()
+             .putBoolean(KEY_IS_LOGGED_IN, false)
+             .remove(KEY_USER_ID)
+             .remove(KEY_NICKNAME)
+             .remove(KEY_TOKEN)
+             .remove(KEY_VALID_UNTIL)
+             .remove(KEY_MAX_MACHINE_BINDINGS)
+             .apply();
     }
 
     private String normalizeMachineCode(String machineCode) {
