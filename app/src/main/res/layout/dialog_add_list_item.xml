@@ -1,33 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingHorizontal="24dp"
+    android:paddingVertical="16dp">
 
     <TextView
         android:id="@+id/tv_dialog_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="添加项"
-        android:textSize="20sp"
+        android:text="添加规则"
+        android:textSize="18sp"
         android:textStyle="bold"
-        android:textColor="#333333"
+        android:textColor="@color/text_primary"
         android:layout_marginBottom="16dp" />
 
-    <EditText
-        android:id="@+id/et_primary"
+    <!-- primary field container (Hint moved here to prevent text overlap) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_primary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="MAC地址或厂商名称"
-        android:inputType="text"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="12dp"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-    <EditText
-        android:id="@+id/et_secondary"
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:inputType="text" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- secondary field container (Hint moved here to prevent text overlap) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_secondary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="备注名（可选）"
-        android:inputType="text" />
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_secondary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:inputType="text" />
+    </com.google.android.material.textfield.TextInputLayout>
 
 </LinearLayout>

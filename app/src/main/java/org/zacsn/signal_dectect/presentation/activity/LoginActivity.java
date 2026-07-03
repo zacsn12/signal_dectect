@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -14,9 +15,8 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
 import org.zacsn.signal_dectect.R;
-import org.zacsn.signal_dectect.data.api.LoginResponse;
 import org.zacsn.signal_dectect.presentation.viewmodel.LoginViewModel;
-import org.zacsn.signal_dectect.util.SessionManager;
+import org.zacsn.signal_dectect.util.LicenseManager;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -34,16 +34,19 @@ public class LoginActivity extends AppCompatActivity {
         TextInputEditText etPassword = findViewById(R.id.et_password);
         MaterialButton btnLogin = findViewById(R.id.btn_login);
         ProgressBar progressBar = findViewById(R.id.progress_bar);
-        SessionManager sessionManager = new SessionManager(this);
+        TextView tvMachineCode = findViewById(R.id.tv_machine_code);
+        LicenseManager licenseManager = new LicenseManager(this);
 
         ivBack.setVisibility(View.GONE);
+        etPassword.setVisibility(View.GONE);
+        btnLogin.setText("激活许可证");
+        tvMachineCode.setText(licenseManager.getMachineCode());
 
         btnLogin.setOnClickListener(v -> {
-            String username = etUsername.getText() != null ? etUsername.getText().toString() : "";
-            String password = etPassword.getText() != null ? etPassword.getText().toString() : "";
-            String machineCode = sessionManager.getMachineCode();
+            String licenseKey = etUsername.getText() != null ? etUsername.getText().toString() : "";
+            String machineCode = licenseManager.getMachineCode();
 
-            viewModel.login(username, password, machineCode);
+            viewModel.activateLicense(licenseKey, machineCode);
         });
 
         viewModel.getIsLoading().observe(this, isLoading -> {
@@ -53,14 +56,14 @@ public class LoginActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.VISIBLE);
             } else {
                 btnLogin.setEnabled(true);
-                btnLogin.setText("登 录");
+                btnLogin.setText("激活许可证");
                 progressBar.setVisibility(View.GONE);
             }
         });
 
         viewModel.getLoginResult().observe(this, result -> {
             if (result != null && !result.isEmpty()) {
-                if ("登录成功".equals(result)) {
+                if ("许可证激活成功".equals(result)) {
                     Toast.makeText(this, result, Toast.LENGTH_SHORT).show();
                 } else {
                     showLoginErrorDialog(result);
@@ -70,24 +73,10 @@ public class LoginActivity extends AppCompatActivity {
 
         viewModel.getIsLoginSuccess().observe(this, isSuccess -> {
             if (isSuccess != null && isSuccess) {
-                // Save session
-                String username = etUsername.getText() != null ? etUsername.getText().toString() : "Admin";
-                LoginResponse.Data loginData = viewModel.getLoginData();
-                if (loginData != null) {
-                    sessionManager.createLoginSession(
-                            username,
-                            loginData.getUserId(),
-                            loginData.getNickname(),
-                            loginData.getToken(),
-                            loginData.getValidUntil(),
-                            loginData.getMachineCode(),
-                            loginData.getMaxMachineBindings()
-                    );
-                } else {
-                    sessionManager.createLoginSession(username);
+                if (!licenseManager.saveLicense(viewModel.getLicenseData())) {
+                    showLoginErrorDialog("许可证签名校验失败，请联系管理员重新签发许可证");
+                    return;
                 }
-                
-                // Start MainActivity
                 android.content.Intent intent = new android.content.Intent(this, org.zacsn.signal_dectect.MainActivity.class);
                 startActivity(intent);
                 finish();
@@ -97,7 +86,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void showLoginErrorDialog(String message) {
         new AlertDialog.Builder(this)
-                .setTitle("登录失败")
+                .setTitle("许可证激活失败")
                 .setMessage(message)
                 .setPositiveButton("确定", null)
                 .show();

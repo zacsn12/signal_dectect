@@ -1,19 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:background="@drawable/bg_card_rounded"
+    android:backgroundTint="@color/surface"
     android:elevation="2dp"
-    android:layout_marginHorizontal="8dp"
+    android:layout_marginHorizontal="12dp"
     android:layout_marginVertical="6dp"
     android:padding="16dp"
     android:gravity="center_vertical">
+
+    <!-- Circle badge containing list-specific icon -->
+    <FrameLayout
+        android:id="@+id/fl_icon_bg"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_icon_circle_green"
+        android:layout_gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/iv_list_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_whitelist"
+            app:tint="@color/white" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:layout_marginStart="14dp"
         android:orientation="vertical">
 
         <TextView
@@ -21,8 +41,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="MAC Address / Manufacturer"
-            android:textColor="#333333"
-            android:textSize="16sp"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -31,16 +51,18 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Device Name / Notes"
-            android:textColor="#666666"
-            android:textSize="14sp" />
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
     </LinearLayout>
 
     <ImageView
         android:id="@+id/iv_delete"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="@drawable/bg_pill_gray"
         android:padding="8dp"
         android:src="@android:drawable/ic_menu_delete"
+        app:tint="@color/error"
         android:contentDescription="Delete" />
 
 </LinearLayout>

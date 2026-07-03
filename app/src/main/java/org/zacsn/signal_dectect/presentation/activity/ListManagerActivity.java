@@ -66,7 +66,7 @@ public class ListManagerActivity extends AppCompatActivity {
         ivBack.setOnClickListener(v -> finish());
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new ListManagerAdapter(this::deleteItem);
+        adapter = new ListManagerAdapter(listType, this::deleteItem);
         recyclerView.setAdapter(adapter);
 
         setupTitle();
@@ -76,12 +76,20 @@ public class ListManagerActivity extends AppCompatActivity {
     }
 
     private void setupTitle() {
+        ImageView ivEmptyIcon = findViewById(R.id.iv_empty_icon);
+        TextView tvEmptyHint = findViewById(R.id.tv_empty_hint);
         if (listType == TYPE_WATCHLIST) {
             tvTitle.setText("信号巡检机型");
+            if (ivEmptyIcon != null) ivEmptyIcon.setImageResource(R.drawable.ic_device_model);
+            if (tvEmptyHint != null) tvEmptyHint.setText("暂无巡检机型配置");
         } else if (listType == TYPE_WHITELIST) {
             tvTitle.setText("白名单管理");
+            if (ivEmptyIcon != null) ivEmptyIcon.setImageResource(R.drawable.ic_whitelist);
+            if (tvEmptyHint != null) tvEmptyHint.setText("白名单为空，未过滤任何设备");
         } else if (listType == TYPE_BLACKLIST) {
             tvTitle.setText("黑名单管理");
+            if (ivEmptyIcon != null) ivEmptyIcon.setImageResource(R.drawable.ic_blacklist);
+            if (tvEmptyHint != null) tvEmptyHint.setText("黑名单为空，未设置任何强制告警");
         }
     }
 
@@ -126,11 +134,17 @@ public class ListManagerActivity extends AppCompatActivity {
         View view = getLayoutInflater().inflate(R.layout.dialog_add_list_item, null);
         EditText etPrimary = view.findViewById(R.id.et_primary);
         EditText etSecondary = view.findViewById(R.id.et_secondary);
+        com.google.android.material.textfield.TextInputLayout tilPrimary = view.findViewById(R.id.til_primary);
+        com.google.android.material.textfield.TextInputLayout tilSecondary = view.findViewById(R.id.til_secondary);
+
+        if (tilSecondary != null) {
+            tilSecondary.setHint("备注名称 (可选)");
+        }
 
         if (listType == TYPE_WATCHLIST) {
-            etPrimary.setHint("MAC地址 / 品牌 / 关键词");
+            if (tilPrimary != null) tilPrimary.setHint("MAC地址 / 品牌 / 关键词");
         } else {
-            etPrimary.setHint("MAC地址 (如 00:11:22:33:44:55)");
+            if (tilPrimary != null) tilPrimary.setHint("MAC地址 (如 00:11:22:33:44:55)");
         }
 
         new AlertDialog.Builder(this)

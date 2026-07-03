@@ -8,25 +8,18 @@ import androidx.fragment.app.Fragment;
 import android.os.Bundle;
 import android.widget.Toast;
 
-import org.zacsn.signal_dectect.data.api.AuthApiConfig;
-import org.zacsn.signal_dectect.data.api.AuthApiService;
-import org.zacsn.signal_dectect.data.api.LoginResponse;
 import org.zacsn.signal_dectect.databinding.ActivityMainBinding;
 import org.zacsn.signal_dectect.domain.model.ScanType;
 import org.zacsn.signal_dectect.presentation.fragment.HomeFragment;
 import org.zacsn.signal_dectect.presentation.fragment.RecordsFragment;
+import org.zacsn.signal_dectect.util.LicenseManager;
 import org.zacsn.signal_dectect.util.PermissionManager;
-import org.zacsn.signal_dectect.util.SessionManager;
 
 import java.util.Map;
 
 import javax.inject.Inject;
 
 import dagger.hilt.android.AndroidEntryPoint;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
@@ -36,81 +29,21 @@ public class MainActivity extends AppCompatActivity {
     PermissionManager permissionManager;
     
     private ActivityResultLauncher<String[]> permissionLauncher;
-    private SessionManager sessionManager;
+    private LicenseManager licenseManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setupPermissionLauncher();
-        sessionManager = new SessionManager(this);
-        if (!sessionManager.isLoggedIn()) {
+        licenseManager = new LicenseManager(this);
+        if (!licenseManager.hasValidLicense()) {
+            Toast.makeText(this, licenseManager.getValidationError(), Toast.LENGTH_LONG).show();
             goToLogin();
             return;
         }
 
-        validateCurrentSession(savedInstanceState);
-    }
-
-    private void validateCurrentSession(Bundle savedInstanceState) {
-        String token = sessionManager.getToken();
-        if (token == null || token.trim().isEmpty()) {
-            sessionManager.logout();
-            Toast.makeText(this, "登录已失效，请重新登录", Toast.LENGTH_LONG).show();
-            goToLogin();
-            return;
-        }
-
-        AuthApiService apiService = AuthApiConfig.createService();
-        apiService.currentUser("Bearer " + token).enqueue(new Callback<LoginResponse>() {
-            @Override
-            public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-
-                LoginResponse body = response.body();
-                if (!response.isSuccessful() || body == null) {
-                    Toast.makeText(MainActivity.this, "授权同步异常，暂时使用本地登录状态", Toast.LENGTH_LONG).show();
-                    initializeMainScreen(savedInstanceState);
-                    return;
-                }
-
-                if (body.getCode() == 200) {
-                    LoginResponse.Data data = body.getData();
-                    if (data != null) {
-                        sessionManager.updateAuthorizationInfo(
-                                data.getUserId(),
-                                data.getNickname(),
-                                data.getValidUntil(),
-                                data.getMachineCode(),
-                                data.getMaxMachineBindings()
-                        );
-                    }
-                    initializeMainScreen(savedInstanceState);
-                    return;
-                }
-
-                if (body.getCode() == 401 || body.getCode() == 403 || body.getCode() == 404) {
-                    sessionManager.logout();
-                    Toast.makeText(MainActivity.this, body.getMessage(), Toast.LENGTH_LONG).show();
-                    goToLogin();
-                    return;
-                }
-
-                Toast.makeText(MainActivity.this, body.getMessage(), Toast.LENGTH_LONG).show();
-                initializeMainScreen(savedInstanceState);
-            }
-
-            @Override
-            public void onFailure(Call<LoginResponse> call, Throwable t) {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                Toast.makeText(MainActivity.this, "授权同步失败，暂时使用本地登录状态", Toast.LENGTH_LONG).show();
-                initializeMainScreen(savedInstanceState);
-            }
-        });
+        initializeMainScreen(savedInstanceState);
     }
 
     private void initializeMainScreen(Bundle savedInstanceState) {

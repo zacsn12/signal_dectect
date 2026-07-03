@@ -37,6 +37,18 @@ public class DeviceModelActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_model);
 
+        // Ensure "apple" is in the watchlist by default on first launch of this settings page
+        android.content.SharedPreferences modelPrefs = getSharedPreferences("device_model_settings", MODE_PRIVATE);
+        boolean initialized = modelPrefs.getBoolean("watchlist_initialized", false);
+        if (!initialized) {
+            new Thread(() -> {
+                if (!watchlistDao.exists("apple")) {
+                    watchlistDao.insert(new WatchlistItemEntity("apple", "apple", "all", "apple", System.currentTimeMillis()));
+                }
+                modelPrefs.edit().putBoolean("watchlist_initialized", true).apply();
+            }).start();
+        }
+
         ImageView ivBack = findViewById(R.id.iv_back);
         ivBack.setOnClickListener(v -> finish());
 

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "L10001",
+    "licenseKey": "SD-DEMO-2026-0001",
+    "customerName": "演示客户",
+    "status": "ACTIVE",
+    "validUntil": "2026-12-31",
+    "maxActivations": 4,
+    "features": [
+      "bluetooth",
+      "wifi",
+      "cellular",
+      "lan"
+    ],
+    "machineBindings": []
+  }
+]

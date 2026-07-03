@@ -3,9 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F5F7"
+    android:background="@color/background"
     android:orientation="vertical">
 
+    <!-- Header Toolbar -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="72dp"
@@ -19,7 +20,7 @@
             android:layout_gravity="start|center_vertical"
             android:padding="12dp"
             android:src="@drawable/ic_back"
-            app:tint="#FFFFFF" />
+            app:tint="@color/white" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -27,263 +28,554 @@
             android:layout_gravity="center"
             android:fontFamily="sans-serif-black"
             android:text="帮助中心"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:textColor="@color/white"
+            android:textSize="18sp" />
     </FrameLayout>
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
         <LinearLayout
+            android:id="@+id/ll_card_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:animateLayoutChanges="true"
             android:orientation="vertical"
-            android:paddingBottom="24dp">
+            android:padding="16dp">
 
+            <!-- Help Welcome Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/primary"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="16dp"
+                android:padding="20dp">
+                
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="常见问题与使用指引"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+                    
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="在这里您可以快速了解信号巡检、规则配置、局域网分析及厂商置信度校验算法的运行机制与使用指引。"
+                    android:textColor="#E0F2FE"
+                    android:textSize="12sp"
+                    android:lineSpacingExtra="2dp" />
+            </LinearLayout>
+
+            <!-- Card 1: 快速开始 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
+                android:elevation="2dp"
+                android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="快速开始"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_auth"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="快速开始"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_1"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
                     android:text="1. 在“我的”页面配置巡检机型、白名单、黑名单。\n2. 进入信号巡检页面开始扫描。\n3. 扫描列表会显示设备名称、类型、信号强度、距离估计和厂商识别等级。\n4. 点击设备可进入详情页；点击详情页中的“厂商识别”条目，可查看完整识别证据。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 2: 巡检机型、白名单、黑名单 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="巡检机型、白名单、黑名单"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_blacklist"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="巡检机型、白/黑名单机制"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_2"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="巡检机型：用于设置需要重点发现的目标厂商，例如 apple、huawei、xiaomi。巡检中，厂商判定达到“已确认厂商”或“高可信疑似”的设备会按巡检机型触发警示。\n\n白名单：用于排除可信设备。命中白名单的 MAC 地址不会触发巡检机型告警。\n\n黑名单：用于强制告警。命中黑名单的 MAC 地址无论厂商识别结果如何，都会触发告警。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="巡检机型：用于设置需要重点发现的目标厂商（例如 apple、huawei、xiaomi 等）。巡检中，厂商判定达到“已确认厂商”或“高可信疑似”的设备会按巡检机型触发警示。\n\n白名单：用于排除可信设备。命中白名单的 MAC 地址不会触发巡检机型告警。\n\n黑名单：用于强制告警。命中黑名单的 MAC 地址无论厂商识别结果如何，都会直接触发最高级别的警报声与弹窗告警。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 3: 局域网扫描如何判断设备 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_3"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="局域网扫描如何判断设备"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_lan"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="局域网扫描如何判断设备"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_3"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_3"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="局域网扫描会优先读取当前 WiFi 的 IP、网关和网段，然后通过 ICMP/ARP 探测发现在线设备。\n\n设备厂商主要来自 MAC OUI 厂商库。命中厂商库可说明网卡或设备供应商，但不一定等于整机品牌。\n\n系统会标记网关/路由器、摄像头设备、移动终端、电脑终端等类别。类别来自网关地址、主机名和厂商关键词推断，属于辅助判断。\n\n局域网扫描受 Android 系统权限、设备防火墙、ARP 缓存和网络隔离影响。有些设备在线但不响应 ping，可能只能通过 ARP 缓存发现。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="局域网扫描会优先读取当前 WiFi 的 IP、网关和网段，然后通过 ICMP 乒乓测试与 ARP 探测发现在线设备。\n\n设备厂商主要来自 MAC OUI 厂商库。命中厂商库可说明网卡或设备供应商，但不一定完全等同于整机品牌。\n\n系统会标记网关/路由器、摄像头设备、移动终端、电脑终端等类别。类别来自网关地址、主机名和厂商关键词推断，属于辅助判断。\n\n局域网扫描受 Android 系统权限、设备防火墙、ARP 缓存和网络隔离影响。有些设备在线但不响应 ping，只能通过系统内核的 ARP 缓存列表被动发现。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 4: 基站扫描如何判断 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_4"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="基站扫描如何判断"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_cellular"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="基站扫描如何判断"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_4"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_4"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="基站扫描读取系统提供的运营商名称、PLMN、网络制式和信号强度，例如 5G NR、4G LTE、3G、2G。\n\n运营商名称来自系统 Telephony 服务，通常可信度较高，但普通 Android API 无法直接列出周围所有基站，也无法单独证明某个基站是否伪造。\n\n当运营商信息完整时，系统会以高可信显示运营商；当运营商未知时，只保留信号强度和网络类型作为参考。\n\n如果需要更强的伪基站识别，需要接入小区 ID、LAC/TAC、频点、PCI、邻区列表、历史基站白名单等更底层数据。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="基站扫描读取系统提供的运营商名称、PLMN (MCC/MNC)、网络制式和信号强度，例如 5G NR、4G LTE、3G、2G。\n\n运营商信息来自系统 Telephony 服务层，其信息真实度完全依赖于基站自述和手机系统卡信息，但普通的 Android API 无法直接证明某个基站是否伪造。\n\n如果需要更精细的伪基站识别（如伪装公网基站），通常需要分析小区的 Cell ID、TAC/LAC、物理小区标识 (PCI)、频点 (ARFCN) 以及邻小区的异常拓扑关系。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 5: 厂商识别等级 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_5"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="厂商识别等级"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_device_model"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="厂商识别等级说明"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_5"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_5"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="已确认厂商：存在较强证据，通常来自 GATT 设备信息服务、PnP ID，或 WiFi BSSID 与 SSID 品牌一致。此等级可用于目标厂商告警。\n\n高可信疑似：存在较强线索，但证据之间不完整或仍可能被人为修改。此等级也会按巡检机型触发警示，弹窗中会标明是高可信命中。\n\n候选线索：来自 BLE 广播厂商 ID、BLE MAC OUI 等弱证据，只能说明“可能相关”，不会按巡检机型直接告警。\n\n未知厂商：没有足够证据，或扫描到的是随机地址、无名称、无可读 GATT 信息的设备。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="已确认厂商：存在无可辩驳的证据（如主动连接 GATT 读取到特征的 Vendor 名、PnP ID 或 WiFi BSSID 专属分配前缀等）。此等级会直接触发关联机型的警报。\n\n高可信疑似：有非常强烈的匹配线索（如专属广播特征、高概率特征公司 ID 等），但由于 MAC 随机化等干扰无法 100% 盖章，此等级也会触发常规巡检预警。\n\n候选线索：仅从蓝牙低功耗广播厂商 ID 或普通 OUI 推测出“可能相关”，不会直接触发拦截，供排查人员参考。\n\n未知厂商：没有搜集到任何可靠的厂商证据，或者该设备完全处于地址随机变化、无任何广播负载的状态。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 6: 置信度如何得来 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_6"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="置信度如何得来"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_ruler"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="置信度评分计算公式"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_6"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_6"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="100%：GATT Manufacturer Name 与 GATT PnP ID 厂商一致。两个独立字段互相印证，是当前最可靠的正常扫描证据。\n\n98%：GATT PnP ID 可解析出明确厂商。PnP ID 中的 VID 来源可能是 Bluetooth SIG 或 USB-IF，比普通广播厂商 ID 更接近设备身份。\n\n96%：GATT 设备信息服务返回明确 Manufacturer Name。该字段来自设备自报，可信度高，但理论上仍可被伪造。\n\n95%：WiFi BSSID OUI 与 SSID 品牌线索指向同一厂商。系统会在 WiFi 场景下标记为已确认厂商。\n\n85%：GATT 返回了厂商信息但存在冲突，或经典蓝牙 MAC OUI 与设备名称品牌一致。系统会标记为高可信疑似。\n\n80%：经典蓝牙 MAC OUI 命中厂商库，或 WiFi BSSID OUI 命中厂商库。经典蓝牙地址和路由器/AP BSSID 通常更稳定，因此可作为高可信疑似。\n\n75%：经典蓝牙设备名称包含明确品牌特征，或非随机 BSSID 的 WiFi SSID 命中手机品牌线索。名称可被修改，因此单独命中不作为最终确认。\n\n70%：BLE 设备名称包含明确品牌特征，或随机 BSSID 的 WiFi SSID 命中手机品牌线索。\n\n60%：BLE 广播 Company ID 命中厂商库。该 ID 只能说明广播数据格式或协议归属，不等于整机厂商。\n\n45%：BLE MAC OUI 命中厂商库。BLE 设备常使用随机地址或可解析私有地址，因此该线索可信度较低。\n\n0%：没有可靠厂商证据，或 WiFi BSSID 疑似随机地址且没有 SSID 品牌线索。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="100%：GATT 厂商名与 GATT PnP ID 互相印证且指向一致，是无可争辩的铁证。\n\n98%：GATT PnP ID 中包含合法的 VID 且匹配。PnP ID 属于官方数据库标准字段，可信度极高。\n\n96%：GATT 包含唯一的设备 Manufacturer Name 字符。\n\n95%：WiFi BSSID 的 OUI 前缀与 SSID 的品牌名称特征完美重合（如 SSID 叫 HUAWEI-XXX，MAC 又来自华为）。\n\n85%：GATT 存在冲突但偏向某一方，或经典蓝牙 MAC 物理前缀与设备名称品牌直接吻合。\n\n80%：经典蓝牙 MAC 地址的 OUI，或 WiFi 路由器物理 MAC 地址的 OUI 直接命中品牌厂商库。\n\n75%：经典蓝牙设备名称中发现匹配的品牌字符。由于设备名随时可改，单独命中不作为铁证。\n\n70%：蓝牙低功耗设备名称包含明确品牌，或随机 WiFi BSSID 对应的 SSID 命中特征品牌。\n\n60%：低功耗蓝牙广播包含合法的 Company ID。它只能说明协议格式归属，并不等同于整机品牌。\n\n45%：蓝牙低功耗的随机 MAC 前缀碰撞命中 OUI。因随机地址占比大，此证据极弱。\n\n0%：无可参考证据，或 MAC 地址疑似完全虚假且无任何特征广播包数据。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 7: 为什么 Apple Inc 不一定是苹果设备 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_7"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="为什么 Apple Inc 不一定是苹果设备"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_brand_apple"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="为何 Apple 广播不一定是苹果整机"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_7"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_7"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="BLE 广播里的 Apple Inc 通常来自 Bluetooth Company ID。它只能说明这段广播数据使用了 Apple 分配的 Company ID，不能单独证明整机是苹果设备。\n\n系统会继续解析 Apple Manufacturer Data 的 payload type：type=0x10、type=0x12 和 type=0x16 会在列表中统一显示为“疑似Apple设备”，方便巡检时快速识别；AirPods 等音频画像会单独标记。\n\n需要注意：iBeacon 和未知 Apple 生态协议广播仍可能来自第三方信标、传感器或开发板，因此不会仅凭 Apple Company ID 直接判定为苹果整机。执行告警时仍以“已确认厂商”或“高可信疑似”为准。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="低功耗蓝牙广播包中的 Apple Inc 标识，往往来自于广播里声明的 16位 Company ID (0x004C)。这仅仅证明该广播段落采用了 Apple 协议族的私有编码规范。\n\n系统会进一步解析 Apple 广播中的具体负载数据类型（Payload type）：只有 type=0x10、0x12、0x16（对应 AirDrop、Nearby、FindMy 寻回网络）才会标识为“疑似Apple设备”；AirPods 等专属耳机会被画像引擎准确分类。\n\n一些第三方蓝牙开发信标（iBeacon）、气象站甚至廉价防丢贴片为了兼容苹果生态，也会广播带有 0x004C 的包，因此不能单凭 Company ID 断言其就是一台苹果手机或平板。本系统已做去噪和细化归类，避免了这类误报干扰。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 8: 如何提升识别准确度 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="12dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_8"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="如何提升识别准确度"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_help"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="如何提升巡检判定准确率"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_8"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_8"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="保持扫描一段时间：部分设备需要多次广播或 GATT 读取后才能确认厂商。\n\n靠近目标区域：距离过远时信号弱，GATT 连接更容易失败，厂商确认可能停留在候选线索。\n\n开启必要权限：蓝牙扫描、蓝牙连接、位置信息权限都会影响扫描结果。\n\n关注判定等级：执行巡检判断时，应优先相信“已确认厂商”；“候选线索”只作为排查参考。\n\n查看证据详情：在设备详情页点击“厂商识别”，可以查看该设备当前置信度的具体来源。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="保持扫描一定时长：很多蓝牙设备并不是连续广播的，需要等待 15s~30s 触发主动 GATT 交互才能搜集齐特征。\n\n拉近检测距离：无线信号会发生路径损耗与折射。当设备距离较远（低于 -85dBm）时，由于握手包极易丢包，将无法完成主动 GATT 探测。\n\n保持全部权限开启：位置信息、蓝牙扫描与连接权限是保证底层硬件正常捕获数据的基础。\n\n关注重点等级：应着重留意“已确认厂商”与“高可信疑似”的警报，对于弱前缀碰撞引起的“候选线索”作参考排查即可。\n\n查看证据链：点击列表设备条目进入详情，查看“厂商识别”，系统会详细列出基于什么字段判断出该结论，杜绝玄学猜测。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Card 9: 扫描不到或结果变化的原因 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_card_rounded"
+                android:backgroundTint="@color/surface"
                 android:elevation="2dp"
                 android:orientation="vertical"
+                android:layout_marginBottom="24dp"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll_header_9"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="扫描不到或结果变化的原因"
-                    android:textColor="#0F172A"
-                    android:textSize="18sp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_wifi"
+                        app:tint="@color/primary" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="无线信号波动与地址变化成因"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:id="@+id/iv_arrow_9"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="@color/text_tertiary" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tv_body_9"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="设备可能处于休眠、息屏、省电或低广播频率状态。\n\nBLE 地址可能会周期性变化，同一物理设备可能表现为不同地址。\n\nAndroid 系统会限制后台扫描频率，长时间扫描时结果可能受系统策略影响。\n\n距离估计基于 RSSI，只能作为近似参考；墙体、遮挡、人体和设备发射功率都会影响结果。"
-                    android:textColor="#475569"
-                    android:textSize="14sp" />
+                    android:text="休眠与节能限制：被测设备若长时间静止或在口袋中，会进入低能耗状态，关闭或大幅降低广播频率（由几毫秒降到数秒一次）。\n\nMAC 地址随机化（苹果/安卓私有机制）：现代操作系统为保护隐私，其无线网卡（蓝牙/WiFi）会周期性地生成假 MAC 地址。如果检测到原设备突然“离线”而冒出个“新未知设备”，即是由该机制导致的。\n\n系统功耗节流：Android 系统会限制后台及前台连续扫描的频率（WiFi 扫描通常两分钟最多限制 4 次），若长时间高强度扫描，会遇到系统级限流。\n\n距离衰减波动：墙壁、衣物阻挡以及人体吸收等物理介质会大幅改变信号强度 (RSSI)。本系统使用加权移动平均算法（SignalDeviceStabilizer）进行了波形平滑，但仍建议以靠近时的测距值为准。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

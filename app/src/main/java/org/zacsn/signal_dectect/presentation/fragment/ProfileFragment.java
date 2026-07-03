@@ -25,7 +25,7 @@ public class ProfileFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
-        org.zacsn.signal_dectect.util.SessionManager sessionManager = new org.zacsn.signal_dectect.util.SessionManager(requireContext());
+        org.zacsn.signal_dectect.util.LicenseManager licenseManager = new org.zacsn.signal_dectect.util.LicenseManager(requireContext());
         
         // Setup Header (we kept the username id for simplicity, but we'll set it to the app name per image, or username if you prefer)
         android.widget.TextView tvUsername = view.findViewById(R.id.tv_username);
@@ -62,16 +62,61 @@ public class ProfileFragment extends Fragment {
             startActivity(new android.content.Intent(requireContext(), org.zacsn.signal_dectect.presentation.activity.UpgradeActivity.class));
         });
         
-        setupRow(view, R.id.row_password, R.drawable.ic_password, "密码修改", null, v -> {
-            startActivity(new android.content.Intent(requireContext(), org.zacsn.signal_dectect.presentation.activity.ChangePasswordActivity.class));
+        setupRow(view, R.id.row_password, R.drawable.ic_password, "刷新授权", null, v -> {
+            String licenseKey = licenseManager.getLicenseKey();
+            if (licenseKey == null || licenseKey.trim().isEmpty()) {
+                Toast.makeText(requireContext(), "本机暂无许可证密钥，请先在登录页激活", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            androidx.appcompat.app.AlertDialog progressDialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setView(R.layout.dialog_loading)
+                    .setCancelable(false)
+                    .create();
+            progressDialog.show();
+
+            org.zacsn.signal_dectect.data.api.LicenseApiService apiService = 
+                    org.zacsn.signal_dectect.data.api.AuthApiConfig.createLicenseService();
+            apiService.refresh(new org.zacsn.signal_dectect.data.api.LicenseRequest(licenseKey, licenseManager.getMachineCode()))
+                    .enqueue(new retrofit2.Callback<org.zacsn.signal_dectect.data.api.LicenseResponse>() {
+                        @Override
+                        public void onResponse(retrofit2.Call<org.zacsn.signal_dectect.data.api.LicenseResponse> call, 
+                                               retrofit2.Response<org.zacsn.signal_dectect.data.api.LicenseResponse> response) {
+                            progressDialog.dismiss();
+                            if (!response.isSuccessful() || response.body() == null) {
+                                Toast.makeText(requireContext(), "刷新失败: HTTP " + response.code(), Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            org.zacsn.signal_dectect.data.api.LicenseResponse body = response.body();
+                            if (body.getCode() == 200 && licenseManager.saveLicense(body.getData())) {
+                                Toast.makeText(requireContext(), "云端许可证已成功同步并刷新", Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(requireContext(), body.getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(retrofit2.Call<org.zacsn.signal_dectect.data.api.LicenseResponse> call, Throwable t) {
+                            progressDialog.dismiss();
+                            Toast.makeText(requireContext(), "网络连接失败: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
         });
         
-        // Logout Row
-        setupRow(view, R.id.row_logout, R.drawable.ic_logout, "退出登录", null, v -> {
-            sessionManager.logout();
-            android.content.Intent intent = new android.content.Intent(requireContext(), org.zacsn.signal_dectect.presentation.activity.LoginActivity.class);
-            intent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
+        // Logout Row with double-confirmation dialog
+        setupRow(view, R.id.row_logout, R.drawable.ic_logout, "清除许可证", null, v -> {
+            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("确认清除许可证？")
+                    .setMessage("清除许可证后，本机的授权数据将被彻底抹除，巡检分析功能将失效。确定要清除并退出登录吗？")
+                    .setPositiveButton("确认清除", (dialog, which) -> {
+                        licenseManager.clearLicense();
+                        Toast.makeText(requireContext(), "许可证已清除", Toast.LENGTH_SHORT).show();
+                        android.content.Intent intent = new android.content.Intent(requireContext(), org.zacsn.signal_dectect.presentation.activity.LoginActivity.class);
+                        intent.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
         });
     }
 

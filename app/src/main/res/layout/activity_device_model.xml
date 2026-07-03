@@ -4,47 +4,117 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F4F5F7">
+    android:background="@color/background">
 
-    <!-- Top Bar -->
-    <FrameLayout
+    <!-- Premium Action Bar -->
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="72dp"
-        android:background="#0A1E36"
-        android:paddingTop="24dp">
-        
+        android:layout_height="56dp"
+        android:background="@color/surface"
+        android:elevation="1dp">
+
         <ImageView
             android:id="@+id/iv_back"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:padding="12dp"
             android:src="@drawable/ic_back"
-            android:layout_gravity="start|center_vertical"
-            app:tint="#FFFFFF" />
+            app:tint="@color/text_primary" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:layout_centerInParent="true"
+            android:fontFamily="sans-serif-black"
             android:text="信号巡检机型"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:fontFamily="sans-serif-black" />
-    </FrameLayout>
+            android:textColor="@color/text_primary"
+            android:textSize="18sp" />
+    </RelativeLayout>
 
+    <!-- Top Informational Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="#E2E8F0"
+        app:cardBackgroundColor="@color/surface">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <FrameLayout
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_icon_circle_orange"
+                android:backgroundTint="#0DF59E0B"
+                android:layout_marginRight="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_help"
+                    app:tint="@color/warning" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="机型监控说明"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="2dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:text="被勾选的品牌将被加入巡检监视名单。在信号巡检时若扫描到对应品牌，系统会触发机型告警并播放警示音。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:lineSpacingMultiplier="1.2" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Subtitle/Category header -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:text="请选择在巡检时需要警示的设备厂商："
-        android:textColor="#666666"
-        android:textSize="14sp" />
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        android:fontFamily="sans-serif-medium"
+        android:text="常见设备品牌"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
 
+    <!-- List of models -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="8dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:paddingBottom="24dp" />
 
 </LinearLayout>

@@ -1,6 +1,11 @@
 package org.zacsn.signal_dectect.presentation.activity;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -9,23 +14,32 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import org.zacsn.signal_dectect.R;
 import org.zacsn.signal_dectect.data.api.AuthApiConfig;
-import org.zacsn.signal_dectect.data.api.AuthApiService;
-import org.zacsn.signal_dectect.data.api.LoginResponse;
-import org.zacsn.signal_dectect.util.SessionManager;
+import org.zacsn.signal_dectect.data.api.LicenseApiService;
+import org.zacsn.signal_dectect.data.api.LicenseRequest;
+import org.zacsn.signal_dectect.data.api.LicenseResponse;
+import org.zacsn.signal_dectect.util.LicenseManager;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-public class AuthInfoActivity extends AppCompatActivity {
 
-    private SessionManager sessionManager;
+public class AuthInfoActivity extends AppCompatActivity {
+    private LicenseManager licenseManager;
     private TextView tvLocalMachineCode;
     private TextView tvAuthSummary;
     private TextView tvBindingCapacity;
     private TextView tvLocalBindingStatus;
-    private TextView tvBoundMachines;
     private TextView tvValidUntil;
     private TextView tvAuthStatus;
+    
+    // New UI Elements
+    private TextView tvLicenseCustomer;
+    private TextView tvLicenseKey;
+    private TextView tvLicenseFeatures;
+    private TextView tvSyncTip;
+    private TextView btnCopyCode;
+    private View vStatusDot;
+    private FrameLayout flStatusIconBg;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,119 +51,98 @@ public class AuthInfoActivity extends AppCompatActivity {
         tvAuthSummary = findViewById(R.id.tv_auth_summary);
         tvBindingCapacity = findViewById(R.id.tv_binding_capacity);
         tvLocalBindingStatus = findViewById(R.id.tv_local_binding_status);
-        tvBoundMachines = findViewById(R.id.tv_bound_machines);
         tvValidUntil = findViewById(R.id.tv_valid_until);
         tvAuthStatus = findViewById(R.id.tv_auth_status);
+        
+        tvLicenseCustomer = findViewById(R.id.tv_license_customer);
+        tvLicenseKey = findViewById(R.id.tv_license_key);
+        tvLicenseFeatures = findViewById(R.id.tv_license_features);
+        tvSyncTip = findViewById(R.id.tv_sync_tip);
+        btnCopyCode = findViewById(R.id.btn_copy_code);
+        vStatusDot = findViewById(R.id.v_status_dot);
+        flStatusIconBg = findViewById(R.id.fl_status_icon_bg);
 
         ivBack.setOnClickListener(v -> finish());
         
-        sessionManager = new SessionManager(this);
+        licenseManager = new LicenseManager(this);
+        renderLocalLicense();
+
+        // Clicking the sync action tip refreshes the license
+        tvSyncTip.setOnClickListener(v -> refreshLicense());
         
-        tvLocalMachineCode.setText(sessionManager.getMachineCode());
-        tvValidUntil.setText(sessionManager.getValidUntil());
-        tvBindingCapacity.setText("-/" + sessionManager.getMaxMachineBindings() + " 台");
-        tvLocalBindingStatus.setText("等待服务端同步");
-        refreshAuthorizationInfo();
-    }
-
-    private void refreshAuthorizationInfo() {
-        String token = sessionManager.getToken();
-        if (token == null || token.isEmpty()) {
-            return;
-        }
-
-        AuthApiService apiService = AuthApiConfig.createService();
-        apiService.currentUser("Bearer " + token).enqueue(new Callback<LoginResponse>() {
-            @Override
-            public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    Toast.makeText(AuthInfoActivity.this, "授权信息同步失败: " + response.code(), Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                LoginResponse loginResponse = response.body();
-                LoginResponse.Data data = loginResponse.getData();
-                if (data != null && data.getValidUntil() != null) {
-                    sessionManager.updateAuthorizationInfo(
-                            data.getUserId(),
-                            data.getNickname(),
-                            data.getValidUntil(),
-                            data.getMachineCode(),
-                            data.getMaxMachineBindings()
-                    );
-                    tvValidUntil.setText(data.getValidUntil());
-                    renderBindingInfo(data);
-                }
-
-                if (loginResponse.getCode() == 200) {
-                    tvAuthStatus.setText("已授权");
-                    tvAuthStatus.setTextColor(getColor(android.R.color.holo_green_dark));
-                    tvAuthSummary.setText("当前账号授权有效，绑定设备在容量范围内可正常使用");
-                } else if (loginResponse.getCode() == 403) {
-                    tvAuthStatus.setText("已过期");
-                    tvAuthStatus.setTextColor(getColor(android.R.color.holo_red_dark));
-                    tvAuthSummary.setText(loginResponse.getMessage());
-                    Toast.makeText(AuthInfoActivity.this, loginResponse.getMessage(), Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(AuthInfoActivity.this, loginResponse.getMessage(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<LoginResponse> call, Throwable t) {
-                Toast.makeText(AuthInfoActivity.this, "授权信息同步失败: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                tvAuthSummary.setText("授权信息同步失败，请检查网络后重新进入本页面");
+        // Copy machine code listener
+        btnCopyCode.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("MachineCode", licenseManager.getMachineCode());
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(this, "设备机器码已复制", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void renderBindingInfo(LoginResponse.Data data) {
-        int maxBindings = Math.max(1, data.getMaxMachineBindings());
-        int boundCount = data.getMachineBindings() != null ? data.getMachineBindings().size() : 0;
-        String localMachineCode = sessionManager.getMachineCode();
-        String currentMachineCode = data.getMachineCode();
+    private void renderLocalLicense() {
+        tvLocalMachineCode.setText(licenseManager.getMachineCode());
+        tvValidUntil.setText(licenseManager.getValidUntil().isEmpty() ? "永不过期" : licenseManager.getValidUntil());
+        tvBindingCapacity.setText("单机离线授权");
+        
+        tvLicenseCustomer.setText(licenseManager.getCustomerName().isEmpty() ? "未知授权客户" : licenseManager.getCustomerName());
+        tvLicenseKey.setText(licenseManager.getLicenseKey().isEmpty() ? "暂无激活秘钥" : licenseManager.getLicenseKey());
+        
+        String features = licenseManager.getFeaturesText();
+        tvLicenseFeatures.setText(features.isEmpty() ? "全部功能授权 (Bluetooth/WiFi/Cellular)" : features);
 
-        tvBindingCapacity.setText(boundCount + "/" + maxBindings + " 台");
-        tvLocalMachineCode.setText(localMachineCode);
-
-        boolean localBound = false;
-        StringBuilder boundMachinesText = new StringBuilder();
-        if (data.getMachineBindings() != null && !data.getMachineBindings().isEmpty()) {
-            for (int i = 0; i < data.getMachineBindings().size(); i++) {
-                LoginResponse.MachineBinding binding = data.getMachineBindings().get(i);
-                String machineCode = binding.getMachineCode() != null ? binding.getMachineCode() : "";
-                if (machineCode.equalsIgnoreCase(localMachineCode)
-                        || machineCode.equalsIgnoreCase(currentMachineCode)) {
-                    localBound = true;
-                }
-                boundMachinesText
-                        .append(i + 1)
-                        .append(". ")
-                        .append(machineCode.isEmpty() ? "未知机器码" : machineCode);
-                if (binding.getBoundAt() != null && !binding.getBoundAt().trim().isEmpty()) {
-                    boundMachinesText.append("\n   绑定时间: ").append(binding.getBoundAt());
-                }
-                if (i < data.getMachineBindings().size() - 1) {
-                    boundMachinesText.append("\n\n");
-                }
-            }
-        }
-
-        if (boundMachinesText.length() == 0) {
-            tvBoundMachines.setText("暂无绑定记录");
+        String error = licenseManager.getValidationError();
+        if (error.isEmpty()) {
+            tvAuthStatus.setText("已授权");
+            tvAuthStatus.setTextColor(getColor(R.color.success));
+            tvLocalBindingStatus.setText("本机许可证有效，可离线使用");
+            tvLocalBindingStatus.setTextColor(getColor(R.color.success));
+            vStatusDot.setBackgroundResource(R.drawable.bg_pill_green);
+            flStatusIconBg.setBackgroundResource(R.drawable.bg_icon_circle_green);
+            tvAuthSummary.setText("当前设备已通过本地许可证数字签名校验。");
+            tvSyncTip.setText("同步云端许可证");
         } else {
-            tvBoundMachines.setText(boundMachinesText.toString());
+            tvAuthStatus.setText("未授权");
+            tvAuthStatus.setTextColor(getColor(R.color.error));
+            tvLocalBindingStatus.setText(error);
+            tvLocalBindingStatus.setTextColor(getColor(R.color.error));
+            vStatusDot.setBackgroundResource(R.drawable.bg_pill_rose);
+            flStatusIconBg.setBackgroundResource(R.drawable.bg_icon_circle_red);
+            tvAuthSummary.setText("许可证校验失败，部分巡检功能可能受限。");
+            tvSyncTip.setText("激活并同步云端许可证");
+        }
+    }
+
+    private void refreshLicense() {
+        String licenseKey = licenseManager.getLicenseKey();
+        if (licenseKey == null || licenseKey.trim().isEmpty()) {
+            Toast.makeText(this, "本机没有许可证密钥，请先在登录页激活", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        if (localBound) {
-            tvLocalBindingStatus.setText("本机已绑定，可使用当前账号");
-            tvLocalBindingStatus.setTextColor(getColor(android.R.color.holo_green_dark));
-        } else if (boundCount < maxBindings) {
-            tvLocalBindingStatus.setText("本机尚未绑定，重新登录成功后会占用 1 个绑定名额");
-            tvLocalBindingStatus.setTextColor(getColor(android.R.color.holo_orange_dark));
-        } else {
-            tvLocalBindingStatus.setText("本机未绑定，且账号绑定名额已满，请联系管理员调整");
-            tvLocalBindingStatus.setTextColor(getColor(android.R.color.holo_red_dark));
-        }
+        LicenseApiService apiService = AuthApiConfig.createLicenseService();
+        apiService.refresh(new LicenseRequest(licenseKey, licenseManager.getMachineCode()))
+                .enqueue(new Callback<LicenseResponse>() {
+                    @Override
+                    public void onResponse(Call<LicenseResponse> call, Response<LicenseResponse> response) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            Toast.makeText(AuthInfoActivity.this, "刷新失败: HTTP " + response.code(), Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        LicenseResponse body = response.body();
+                        if (body.getCode() == 200 && licenseManager.saveLicense(body.getData())) {
+                            Toast.makeText(AuthInfoActivity.this, "云端许可证已成功同步并刷新", Toast.LENGTH_SHORT).show();
+                            renderLocalLicense();
+                        } else {
+                            Toast.makeText(AuthInfoActivity.this, body.getMessage(), Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<LicenseResponse> call, Throwable t) {
+                        Toast.makeText(AuthInfoActivity.this, "连接服务器失败: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 }

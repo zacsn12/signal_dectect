@@ -1,0 +1,20 @@
+[
+  {
+    "validUntil": "2026-12-31",
+    "maxMachineBindings": 4,
+    "machineBindings": [
+      {
+        "machineCode": "MC-46A75595E17AE3B8",
+        "boundAt": "2026-06-24T09:01:02.586Z"
+      },
+      {
+        "machineCode": "MC-C6E906AE0F62D190",
+        "boundAt": "2026-06-25T02:52:58.010Z"
+      }
+    ],
+    "id": "10002",
+    "username": "zacsn",
+    "nickname": "test",
+    "passwordHash": "pbkdf2_sha256$120000$PUyEKSer7zvUenRMC35hKQ==$04Hq1A68BOOu335VdKUOdKLE1S4fa6OSnfdM+1gj6is="
+  }
+]

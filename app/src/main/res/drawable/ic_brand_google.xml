@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Mathematical single-contour Google G logo (No seams, no strokes, 100% smooth curves) -->
+    <path
+        android:fillColor="#EA4335"
+        android:pathData="M 12,2 A 10,10 0 1 0 22,12 H 12 V 14.5 H 19.5 A 7.5,7.5 0 1 1 12,4.5 A 7.5,7.5 0 0 1 17.5,7 L 19.5,5 A 10,10 0 0 0 12,2 Z" />
+</vector>

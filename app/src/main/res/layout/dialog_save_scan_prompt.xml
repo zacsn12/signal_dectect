@@ -4,96 +4,88 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     app:cardBackgroundColor="@color/surface"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="8dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="6dp"
     app:strokeWidth="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- Animated/Premium Header Icon -->
+        <FrameLayout
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_icon_circle_blue"
+            android:backgroundTint="#1A2563EB"
+            android:layout_marginBottom="16dp">
+
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_device_model"
+                app:tint="@color/primary" />
+        </FrameLayout>
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tv_save_prompt_title"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingHorizontal="20dp"
-            android:paddingTop="20dp"
-            android:paddingBottom="12dp">
+            android:fontFamily="sans-serif-black"
+            android:text="保存扫描记录"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:layout_marginBottom="6dp" />
 
-            <FrameLayout
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/bg_icon_circle_blue">
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/tv_save_prompt_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:text="开始新的巡检前，请处理当前结果"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"
+            android:gravity="center" />
 
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_auth"
-                    app:tint="@color/primary" />
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tv_save_prompt_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-black"
-                    android:text="保存扫描记录"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp" />
-
-                <TextView
-                    android:id="@+id/tv_save_prompt_subtitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="开始新的巡检前，请处理当前结果"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
-            </LinearLayout>
-        </LinearLayout>
-
+        <!-- Message -->
         <TextView
             android:id="@+id/tv_save_prompt_message"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="20dp"
-            android:layout_marginTop="4dp"
             android:fontFamily="sans-serif"
-            android:lineSpacingMultiplier="1.2"
-            android:text="当前扫描列表中有设备结果，开始新的巡检会清空列表。"
+            android:lineSpacingMultiplier="1.25"
+            android:text="当前扫描列表中已有设备结果，开始新的巡检会清空列表。"
             android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
 
+        <!-- Stats Box -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="20dp"
-            android:layout_marginTop="14dp"
             android:background="@drawable/bg_pill_blue"
-            android:gravity="center_vertical"
+            android:backgroundTint="#0D2563EB"
+            android:gravity="center"
             android:orientation="horizontal"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="10dp">
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:layout_marginBottom="24dp">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:fontFamily="sans-serif-medium"
-                android:text="待处理设备"
+                android:text="待处理设备："
                 android:textColor="@color/primary_variant"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/tv_save_prompt_count"
@@ -102,60 +94,65 @@
                 android:fontFamily="sans-serif-black"
                 android:text="0 个"
                 android:textColor="@color/primary_variant"
-                android:textSize="15sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
+        <!-- Buttons Stack -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:background="@color/background"
-            android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="12dp">
+            android:orientation="vertical">
 
+            <!-- Primary Action: Save -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_save_prompt_save"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
                 android:minHeight="0dp"
-                android:text="保存后开始"
+                android:text="保存并退出"
                 android:textColor="@color/on_primary"
-                android:textSize="14sp"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif-bold"
                 app:backgroundTint="@color/primary"
-                app:cornerRadius="6dp" />
+                app:cornerRadius="10dp"
+                app:elevation="0dp" />
 
+            <!-- Secondary Actions Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="end"
+                android:layout_marginTop="12dp"
                 android:orientation="horizontal">
 
+                <!-- Cancel Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_save_prompt_cancel"
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
                     android:minHeight="0dp"
                     android:text="取消"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium" />
 
+                <!-- Discard Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_save_prompt_discard"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_height="46dp"
+                    android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:minHeight="0dp"
                     android:text="不保存"
                     android:textColor="@color/error"
-                    android:textSize="13sp"
-                    app:cornerRadius="6dp"
-                    app:strokeColor="@color/error" />
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
+                    app:cornerRadius="10dp"
+                    app:strokeColor="@color/error"
+                    app:strokeWidth="1.5dp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

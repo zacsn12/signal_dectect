@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Solid dark-blue circle container (Aligned to match Samsung/Xiaomi visual weight) -->
+    <path
+        android:fillColor="#0B1E36"
+        android:pathData="M 12,1 A 11,11 0 1 0 12,23 A 11,11 0 1 0 12,1 Z" />
+    <!-- Bold white 'H' in center (Upright, zero-cutout solid path to prevent vector rendering white dots) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 8.5,7 h 2 v 4 h 3 V 7 h 2 v 10 h -2 v -4 h -3 v 4 h -2 Z" />
+</vector>

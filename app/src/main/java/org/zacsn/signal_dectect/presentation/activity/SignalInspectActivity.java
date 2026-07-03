@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
@@ -64,6 +65,7 @@ public class SignalInspectActivity extends AppCompatActivity {
     private java.util.List<SignalDevice> currentDevices = new java.util.ArrayList<>();
     private long scanStartTime = 0;
     private double selectedDistanceMeters = 0.0;
+    private volatile boolean isSavingRecord = false;
     
     @Inject
     ScanRecordDao scanRecordDao;
@@ -387,8 +389,8 @@ public class SignalInspectActivity extends AppCompatActivity {
                 "当前扫描列表中已有设备结果。开始新的巡检会清空列表，请先选择是否保存。",
                 "不保存",
                 "保存后开始",
-                this::startNewScan,
-                () -> showSaveRecordNameDialog(this::startNewScan, null)
+                this::startNewScanAfterDiscardingScanResults,
+                this::startNewScanAfterSavingScanRecord
         );
     }
 
@@ -791,8 +793,8 @@ public class SignalInspectActivity extends AppCompatActivity {
                 "当前扫描列表中已有设备结果。直接退出不会保留本次扫描记录，请选择是否保存。",
                 "不保存退出",
                 "保存并退出",
-                this::finish,
-                () -> showSaveRecordNameDialog(this::finish, null)
+                this::finishAfterDiscardingScanResults,
+                this::finishAfterSavingScanRecord
         );
     }
     
@@ -804,31 +806,46 @@ public class SignalInspectActivity extends AppCompatActivity {
     }
 
     private void showSaveRecordNameDialog(Runnable afterSave, Runnable onCancel) {
-        EditText editText = new EditText(this);
-        editText.setHint("输入记录名称（可选）");
-        
+        View dialogView = getLayoutInflater().inflate(
+                org.zacsn.signal_dectect.R.layout.dialog_save_record_name,
+                null
+        );
+        EditText etName = dialogView.findViewById(org.zacsn.signal_dectect.R.id.et_record_name);
+        Button btnCancel = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_record_name_cancel);
+        Button btnConfirm = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_record_name_confirm);
+
         // Generate default name
         String defaultName = getScanTypeName() + " - " + 
                 new java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
                         .format(new java.util.Date());
-        editText.setText(defaultName);
-        
-        new AlertDialog.Builder(this)
-                .setTitle("记录名称")
-                .setView(editText)
-                .setPositiveButton("确定", (dialog, which) -> {
-                    String recordName = editText.getText().toString().trim();
-                    if (recordName.isEmpty()) {
-                        recordName = defaultName;
-                    }
-                    saveRecord(recordName, afterSave);
-                })
-                .setNegativeButton("取消", (dialog, which) -> {
-                    if (onCancel != null) {
-                        onCancel.run();
-                    }
-                })
-                .show();
+        etName.setText(defaultName);
+        if (defaultName != null) {
+            etName.setSelection(defaultName.length());
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+
+        btnCancel.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (onCancel != null) {
+                onCancel.run();
+            }
+        });
+
+        btnConfirm.setOnClickListener(v -> {
+            String recordName = etName.getText().toString().trim();
+            if (recordName.isEmpty()) {
+                recordName = defaultName;
+            }
+            dialog.dismiss();
+            saveRecord(recordName, afterSave);
+        });
+
+        dialog.show();
+        resizeMaterialDialog(dialog);
     }
     
     /**
@@ -839,36 +856,98 @@ public class SignalInspectActivity extends AppCompatActivity {
     }
 
     private void saveRecord(String recordName, Runnable afterSave) {
+        if (isSavingRecord) {
+            Toast.makeText(this, "记录正在保存，请稍候", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isSavingRecord = true;
+        if (isScanning) {
+            soundEffectManager.stopAllSounds();
+            viewModel.stopScan();
+        }
+
         long timestamp = System.currentTimeMillis();
         int scanTypeInt = getScanTypeInt();
         long durationSeconds = scanStartTime > 0 ? (timestamp - scanStartTime) / 1000 : 0;
-        int deviceCount = currentDevices.size();
-        
-        // Convert devices to JSON
-        Gson gson = new Gson();
-        String devicesJson = gson.toJson(currentDevices);
-        
-        ScanRecordEntity record = new ScanRecordEntity(
-                timestamp,
-                scanTypeInt,
-                durationSeconds,
-                null,  // latitude
-                null,  // longitude
-                deviceCount,
-                devicesJson
-        );
-        record.setName(recordName);
-        
-        // Save in background thread
+        java.util.List<SignalDevice> devicesSnapshot = new java.util.ArrayList<>(currentDevices);
+
         new Thread(() -> {
-            scanRecordDao.insertRecord(record);
-            runOnUiThread(() -> {
-                android.widget.Toast.makeText(this, "记录已保存", android.widget.Toast.LENGTH_SHORT).show();
-                if (afterSave != null) {
-                    afterSave.run();
-                }
-            });
+            try {
+                Gson gson = new Gson();
+                String devicesJson = gson.toJson(devicesSnapshot);
+
+                ScanRecordEntity record = new ScanRecordEntity(
+                        timestamp,
+                        scanTypeInt,
+                        durationSeconds,
+                        null,  // latitude
+                        null,  // longitude
+                        devicesSnapshot.size(),
+                        devicesJson
+                );
+                record.setName(recordName);
+
+                long insertedId = scanRecordDao.insertRecord(record);
+                Log.i("SignalInspectActivity", "Scan record saved, id=" + insertedId
+                        + ", deviceCount=" + devicesSnapshot.size());
+
+                runOnUiThreadIfAlive(() -> {
+                    isSavingRecord = false;
+                    Toast.makeText(this, "记录已保存", Toast.LENGTH_SHORT).show();
+                    currentDevices = new java.util.ArrayList<>();
+                    latestVisibleDevices = new java.util.ArrayList<>();
+                    if (afterSave != null) {
+                        afterSave.run();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e("SignalInspectActivity", "Failed to save scan record", e);
+                runOnUiThreadIfAlive(() -> {
+                    isSavingRecord = false;
+                    Toast.makeText(this, "记录保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
         }).start();
+    }
+
+    private void finishAfterDiscardingScanResults() {
+        currentDevices = new java.util.ArrayList<>();
+        latestVisibleDevices = new java.util.ArrayList<>();
+        if (isScanning) {
+            viewModel.stopScan();
+            soundEffectManager.stopAllSounds();
+        }
+        finish();
+    }
+
+    private void finishAfterSavingScanRecord() {
+        if (isSavingRecord) {
+            Toast.makeText(this, "记录正在保存，请稍候", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        showSaveRecordNameDialog(this::finish, null);
+    }
+
+    private void startNewScanAfterDiscardingScanResults() {
+        currentDevices = new java.util.ArrayList<>();
+        latestVisibleDevices = new java.util.ArrayList<>();
+        startNewScan();
+    }
+
+    private void startNewScanAfterSavingScanRecord() {
+        if (isSavingRecord) {
+            Toast.makeText(this, "记录正在保存，请稍候", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        showSaveRecordNameDialog(this::startNewScan, null);
+    }
+
+    private void runOnUiThreadIfAlive(Runnable runnable) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        runOnUiThread(runnable);
     }
     
     /**

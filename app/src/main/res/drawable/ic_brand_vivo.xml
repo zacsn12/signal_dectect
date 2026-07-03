@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- vivo brand logo letters -->
+    <path
+        android:fillColor="#008CD6"
+        android:pathData="M 1,9 L 3.5,15 L 6,9 H 4.5 L 3.5,12.5 L 2.5,9 Z
+        M 8,9 H 9.5 V 15 H 8 Z M 8.75,6.5 A 0.75,0.75 0 1 1 8.75,8 A 0.75,0.75 0 1 1 8.75,6.5 Z
+        M 11,9 L 13.5,15 L 16,9 H 14.5 L 13.5,12.5 L 12.5,9 Z
+        M 20,9 C 18.34,9 17,10.34 17,12 C 17,13.66 18.34,15 20,15 C 21.66,15 23,13.66 23,12 C 23,10.34 21.66,9 20,9 Z M 20,13.5 C 19.17,13.5 18.5,12.83 18.5,12 C 18.5,11.17 19.17,10.5 20,10.5 C 20.83,10.5 21.5,11.17 21.5,12 C 21.5,12.83 20.83,13.5 20,13.5 Z" />
+</vector>

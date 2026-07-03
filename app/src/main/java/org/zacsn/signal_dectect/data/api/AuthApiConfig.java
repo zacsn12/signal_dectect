@@ -13,16 +13,22 @@ public final class AuthApiConfig {
     }
 
     public static AuthApiService createService() {
+        return createRetrofit().create(AuthApiService.class);
+    }
+
+    public static LicenseApiService createLicenseService() {
+        return createRetrofit().create(LicenseApiService.class);
+    }
+
+    private static Retrofit createRetrofit() {
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
                 .proxy(Proxy.NO_PROXY)
                 .build();
 
-        Retrofit retrofit = new Retrofit.Builder()
+        return new Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-
-        return retrofit.create(AuthApiService.class);
     }
 }
