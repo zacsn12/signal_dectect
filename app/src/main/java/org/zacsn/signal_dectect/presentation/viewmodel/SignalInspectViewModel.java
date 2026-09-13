@@ -1,5 +1,8 @@
 package org.zacsn.signal_dectect.presentation.viewmodel;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -36,6 +39,7 @@ public class SignalInspectViewModel extends ViewModel {
     private final AddToBlacklistUseCase addToBlacklistUseCase;
     private final AddToWhitelistUseCase addToWhitelistUseCase;
     private final DeviceRepository deviceRepository;
+    private final ScanRepository scanRepository;
     
     private final MutableLiveData<ScanState> scanState = new MutableLiveData<>(ScanState.IDLE);
     private final MutableLiveData<List<SignalDevice>> devices = new MutableLiveData<>(new ArrayList<>());
@@ -47,6 +51,19 @@ public class SignalInspectViewModel extends ViewModel {
     private DeviceType filterType = null;
     private Double maxDistance = null;
 
+    /**
+     * 扫描计时器。用主线程 Handler 自重投，而不是裸线程轮询 LiveData ——
+     * 后者跨线程读 scanState 且没有停止入口，ViewModel 销毁后仍会跑下去。
+     */
+    private final Handler durationHandler = new Handler(Looper.getMainLooper());
+    private final Runnable durationTick = new Runnable() {
+        @Override
+        public void run() {
+            scanDuration.setValue((System.currentTimeMillis() - scanStartTime) / 1000);
+            durationHandler.postDelayed(this, 1000);
+        }
+    };
+
     
     @Inject
     public SignalInspectViewModel(
@@ -55,7 +72,8 @@ public class SignalInspectViewModel extends ViewModel {
         AddToWatchlistUseCase addToWatchlistUseCase,
         AddToBlacklistUseCase addToBlacklistUseCase,
         AddToWhitelistUseCase addToWhitelistUseCase,
-        DeviceRepository deviceRepository
+        DeviceRepository deviceRepository,
+        ScanRepository scanRepository
     ) {
         this.startScanUseCase = startScanUseCase;
         this.stopScanUseCase = stopScanUseCase;
@@ -63,6 +81,7 @@ public class SignalInspectViewModel extends ViewModel {
         this.addToBlacklistUseCase = addToBlacklistUseCase;
         this.addToWhitelistUseCase = addToWhitelistUseCase;
         this.deviceRepository = deviceRepository;
+        this.scanRepository = scanRepository;
     }
     
     public boolean startScan(ScanType scanType) {
@@ -102,27 +121,28 @@ public class SignalInspectViewModel extends ViewModel {
     
     public void stopScan() {
         stopScanUseCase.execute();
+        stopDurationTimer();
         scanState.setValue(ScanState.IDLE);
         scanDuration.setValue(0L);
         // Don't clear device list when stopping scan - keep the results visible
     }
-    
+
     private void startDurationTimer() {
-        // Update duration every second
-        new Thread(() -> {
-            while (scanState.getValue() == ScanState.SCANNING) {
-                long duration = System.currentTimeMillis() - scanStartTime;
-                scanDuration.postValue(duration / 1000);
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
-        }).start();
+        stopDurationTimer();
+        durationHandler.postDelayed(durationTick, 1000);
     }
 
-    
+    private void stopDurationTimer() {
+        durationHandler.removeCallbacks(durationTick);
+    }
+
+    @Override
+    protected void onCleared() {
+        stopDurationTimer();
+        super.onCleared();
+    }
+
+
     public void filterByType(DeviceType type) {
         this.filterType = type;
         devices.setValue(applyFilters(rawDevices));
@@ -144,7 +164,7 @@ public class SignalInspectViewModel extends ViewModel {
         
         if (maxDistance != null) {
             filtered = filtered.stream()
-                .filter(d -> DistanceUtils.isReliable(d.getDistance()) && d.getDistance() <= maxDistance)
+                .filter(d -> d.isStale() || (DistanceUtils.isReliable(d.getDistance()) && d.getDistance() <= maxDistance))
                 .collect(Collectors.toList());
         }
         
@@ -178,6 +198,25 @@ public class SignalInspectViewModel extends ViewModel {
     
     public LiveData<String> getErrorMessage() {
         return errorMessage;
+    }
+    
+    public List<SignalDevice> getRawDevices() {
+        return new ArrayList<>(rawDevices);
+    }
+
+    public List<SignalDevice> getSessionDevices() {
+        List<SignalDevice> repoDevices = scanRepository.getSessionDevices();
+        if (repoDevices != null && !repoDevices.isEmpty()) {
+            return repoDevices;
+        }
+        if (rawDevices != null && !rawDevices.isEmpty()) {
+            return new ArrayList<>(rawDevices);
+        }
+        List<SignalDevice> liveDevices = devices.getValue();
+        if (liveDevices != null && !liveDevices.isEmpty()) {
+            return new ArrayList<>(liveDevices);
+        }
+        return new ArrayList<>();
     }
     
     public enum ScanState {

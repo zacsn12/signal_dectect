@@ -4,6 +4,7 @@ import androidx.room.TypeConverter;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.zacsn.signal_dectect.util.GsonFactory;
 
 import java.lang.reflect.Type;
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.List;
  */
 public class Converters {
     
-    private static final Gson gson = new Gson();
+    private static final Gson gson = GsonFactory.getGson();
     
     /**
      * Convert JSON string to List of Strings
@@ -31,8 +32,13 @@ public class Converters {
         if (value == null) {
             return null;
         }
-        Type listType = new TypeToken<List<String>>() {}.getType();
-        return gson.fromJson(value, listType);
+        try {
+            Type listType = new TypeToken<List<String>>() {}.getType();
+            return gson.fromJson(value, listType);
+        } catch (Throwable e) {
+            android.util.Log.e("Converters", "Failed to deserialize string list", e);
+            return null;
+        }
     }
     
     /**
@@ -47,7 +53,12 @@ public class Converters {
         if (list == null) {
             return null;
         }
-        return gson.toJson(list);
+        try {
+            return gson.toJson(list);
+        } catch (Throwable e) {
+            android.util.Log.e("Converters", "Failed to serialize string list", e);
+            return null;
+        }
     }
     
     /**
@@ -63,7 +74,12 @@ public class Converters {
         if (value == null) {
             return null;
         }
-        return gson.fromJson(value, type);
+        try {
+            return gson.fromJson(value, type);
+        } catch (Throwable e) {
+            android.util.Log.e("Converters", "Failed to deserialize object from json", e);
+            return null;
+        }
     }
     
     /**
@@ -77,6 +93,11 @@ public class Converters {
         if (object == null) {
             return null;
         }
-        return gson.toJson(object);
+        try {
+            return gson.toJson(object);
+        } catch (Throwable e) {
+            android.util.Log.e("Converters", "Failed to serialize object to json", e);
+            return null;
+        }
     }
 }

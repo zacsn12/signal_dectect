@@ -225,9 +225,11 @@ public class RecordsFragment extends Fragment {
 
     private void observeViewModel() {
         viewModel.getAllRecords().observe(getViewLifecycleOwner(), records -> {
-            allRecordsList = records;
+            allRecordsList = records != null ? records : new ArrayList<>();
             filterRecords(currentSearchQuery);
-            binding.btnManage.setEnabled(!records.isEmpty());
+            if (binding != null) {
+                binding.btnManage.setEnabled(!allRecordsList.isEmpty());
+            }
         });
     }
 
@@ -239,6 +241,7 @@ public class RecordsFragment extends Fragment {
             filteredList.addAll(allRecordsList);
         } else {
             for (org.zacsn.signal_dectect.data.database.ScanRecordEntity record : allRecordsList) {
+                if (record == null) continue;
                 boolean matchName = record.getName() != null && record.getName().toLowerCase().contains(currentSearchQuery);
                 // Also search by formatted time if needed, but name is main target
                 if (matchName) {

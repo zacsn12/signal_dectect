@@ -48,6 +48,7 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
                        oldItem.getDistance() == newItem.getDistance() &&
                        oldItem.getManufacturerConfidence() == newItem.getManufacturerConfidence() &&
                        oldItem.getManufacturerVerdict() == newItem.getManufacturerVerdict() &&
+                       oldItem.getPresenceState() == newItem.getPresenceState() &&
                        java.util.Objects.equals(oldItem.getManufacturer(), newItem.getManufacturer()) &&
                        java.util.Objects.equals(oldItem.getCandidateManufacturer(), newItem.getCandidateManufacturer()) &&
                        java.util.Objects.equals(oldItem.getManufacturerEvidence(), newItem.getManufacturerEvidence());
@@ -77,23 +78,35 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
         
         void bind(SignalDevice device) {
             boolean isHighlighted = highlightedMacs.contains(normalizeMac(device.getMacAddress()));
-            binding.viewCardBackground.setBackgroundResource(isHighlighted
-                ? R.drawable.bg_pill_rose
-                : R.drawable.bg_card_rounded);
+            boolean isStale = device.isStale();
+            boolean isMissing = device.isMissing();
+            binding.viewCardBackground.setBackgroundResource(isStale
+                    ? R.drawable.bg_card_stale
+                    : (isHighlighted ? R.drawable.bg_pill_rose : R.drawable.bg_card_rounded));
             binding.tvTargetBadge.setVisibility(isHighlighted ? android.view.View.VISIBLE : android.view.View.GONE);
+            binding.tvMissingBadge.setVisibility(isMissing ? android.view.View.VISIBLE : android.view.View.GONE);
+            binding.tvStaleBadge.setVisibility(isStale ? android.view.View.VISIBLE : android.view.View.GONE);
+            binding.viewStaleIndicator.setVisibility(isStale ? android.view.View.VISIBLE : android.view.View.GONE);
+            binding.getRoot().setAlpha(isStale ? 0.86f : 1.0f);
 
             binding.tvDeviceName.setText(device.getDeviceName() != null 
                 ? device.getDeviceName() : "Unknown Device");
             binding.tvMacAddress.setText(device.getMacAddress());
             binding.tvSignalStrength.setText(device.getSignalStrength() + " dBm");
             binding.tvDistance.setText(DistanceUtils.formatMeters(device.getDistance()));
-            binding.tvDeviceType.setText(device.getDeviceType().name());
+            binding.tvDeviceType.setText(org.zacsn.signal_dectect.util.DisplayMapper.deviceType(device.getDeviceType()));
             bindManufacturerVerdict(device);
             
             // Set signal strength status dot & text color dynamically
             int dbm = device.getSignalStrength();
             android.content.Context context = binding.getRoot().getContext();
-            if (dbm >= -60) {
+            if (isStale) {
+                binding.viewSignalStatus.setBackgroundResource(R.drawable.bg_icon_circle_red);
+                binding.tvSignalStrength.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
+            } else if (isMissing) {
+                binding.viewSignalStatus.setBackgroundResource(R.drawable.bg_icon_circle_orange);
+                binding.tvSignalStrength.setTextColor(ContextCompat.getColor(context, R.color.warning));
+            } else if (dbm >= -60) {
                 binding.viewSignalStatus.setBackgroundResource(R.drawable.bg_icon_circle_green);
                 binding.tvSignalStrength.setTextColor(ContextCompat.getColor(context, R.color.success));
             } else if (dbm >= -80) {
@@ -127,6 +140,9 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
                     binding.ivManufacturerIcon.setImageResource(R.drawable.ic_bluetooth);
                 }
                 binding.ivManufacturerIcon.setColorFilter(ContextCompat.getColor(context, R.color.primary));
+            }
+            if (isStale) {
+                binding.ivManufacturerIcon.setColorFilter(ContextCompat.getColor(context, R.color.text_tertiary));
             }
             
             binding.getRoot().setOnClickListener(v -> {
@@ -193,7 +209,7 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
             if (!isUsefulManufacturer(manufacturer)) {
                 return "暂无明确厂商线索";
             }
-            String sourceLabel = getSourceLabel(device.getManufacturerSource());
+            String sourceLabel = org.zacsn.signal_dectect.util.DisplayMapper.manufacturerSource(device.getManufacturerSource());
             if (device.getManufacturerVerdict() == ManufacturerVerdict.POSSIBLE
                     && device.getManufacturerConfidence() > 0) {
                 return manufacturer + " / " + sourceLabel + " · 线索可信度 "
@@ -210,56 +226,6 @@ public class SignalDeviceAdapter extends ListAdapter<SignalDevice, SignalDeviceA
                 return device.getCandidateManufacturer();
             }
             return "";
-        }
-
-        private String getSourceLabel(String source) {
-            if (source == null) {
-                return "来源未知";
-            }
-            switch (source) {
-                case "gatt_device_info+pnp_id":
-                    return "GATT设备信息+PnP ID";
-                case "gatt_device_info":
-                    return "GATT设备信息";
-                case "gatt_pnp_id":
-                    return "GATT PnP ID";
-                case "gatt_device_info_conflict":
-                    return "GATT线索冲突";
-                case "device_name":
-                    return "设备名称线索";
-                case "ble_company_id":
-                    return "BLE广播Company ID";
-                case "ble_apple_audio":
-                    return "Apple音频设备画像";
-                case "ble_apple_findmy":
-                    return "Apple定位设备画像";
-                case "ble_apple_handoff":
-                    return "Apple Handoff画像";
-                case "ble_apple_nearby":
-                    return "Apple Nearby画像";
-                case "ble_apple_protocol":
-                    return "Apple生态协议";
-                case "mac_oui":
-                    return "MAC OUI线索";
-                case "ble_mac_oui":
-                    return "BLE MAC OUI线索";
-                case "classic_mac_oui":
-                    return "经典蓝牙MAC OUI";
-                case "classic_mac_name_match":
-                    return "经典蓝牙MAC+名称一致";
-                case "wifi_bssid_oui":
-                    return "WiFi BSSID厂商库";
-                case "wifi_ssid_name":
-                    return "WiFi SSID品牌线索";
-                case "wifi_bssid_ssid_match":
-                    return "WiFi BSSID+SSID一致";
-                case "wifi_randomized_bssid":
-                    return "WiFi随机BSSID";
-                case "cellular_operator":
-                    return "运营商";
-                default:
-                    return "来源未知";
-            }
         }
 
         private boolean isUsefulManufacturer(String manufacturer) {

@@ -149,14 +149,28 @@ public class SignalScanServiceTest {
         
         // This should not throw exception
         service.startScan(ScanType.BLUETOOTH_ONLY);
-        
-        // Verify scan started (devices list should be cleared)
-        List<SignalDevice> devices = service.getAllDevices();
-        assertNotNull("Device list should not be null", devices);
-        assertEquals("Device list should be empty after starting new scan", 0, devices.size());
-        
+
+        // 聚合已下沉到 ScanEngine 的后台线程，清空是异步生效的，
+        // 不能在 startScan() 返回后立刻断言 size==0（会随采集速度抖动）。
+        assertNotNull("Device list should not be null", service.getAllDevices());
+        assertTrue("Device list should be cleared after starting new scan",
+                awaitEmptyDeviceList(2000));
+
         // Stop scan
         service.stopScan();
+    }
+
+    /** 在给定时限内轮询设备列表，一旦观察到为空即返回 true。 */
+    private boolean awaitEmptyDeviceList(long timeoutMs) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        do {
+            List<SignalDevice> devices = service.getAllDevices();
+            if (devices != null && devices.isEmpty()) {
+                return true;
+            }
+            Thread.sleep(20);
+        } while (System.currentTimeMillis() < deadline);
+        return false;
     }
 
     /**

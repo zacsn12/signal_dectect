@@ -3,6 +3,7 @@ package org.zacsn.signal_dectect.domain.model;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.zacsn.signal_dectect.data.database.*;
+import org.zacsn.signal_dectect.util.GsonFactory;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -13,7 +14,7 @@ import java.util.List;
  */
 public class EntityMappers {
     
-    private static final Gson gson = new Gson();
+    private static final Gson gson = GsonFactory.getGson();
     
     // ScanRecordEntity to ScanRecord conversion
     public static ScanRecord toDomain(ScanRecordEntity entity) {
@@ -21,12 +22,7 @@ public class EntityMappers {
         
         ScanType scanType = ScanType.fromInt(entity.getScanType());
         
-        List<SignalDevice> devices = new ArrayList<>();
-        if (entity.getDevicesJson() != null && !entity.getDevicesJson().isEmpty()) {
-            Type listType = new TypeToken<List<SignalDevice>>() {}.getType();
-            devices = gson.fromJson(entity.getDevicesJson(), listType);
-            if (devices == null) devices = new ArrayList<>();
-        }
+        List<SignalDevice> devices = parseDevicesJson(entity.getDevicesJson(), entity.getTimestamp());
         
         return new ScanRecord(
             entity.getId(),
@@ -35,9 +31,63 @@ public class EntityMappers {
             entity.getDuration(),
             entity.getLatitude(),
             entity.getLongitude(),
-            entity.getDeviceCount(),
+            Math.max(entity.getDeviceCount(), devices.size()),
             devices
         );
+    }
+
+    public static List<SignalDevice> parseDevicesJson(String devicesJson, long fallbackTimestamp) {
+        List<SignalDevice> devices = new ArrayList<>();
+        if (devicesJson == null || devicesJson.trim().isEmpty()) {
+            return devices;
+        }
+
+        String json = devicesJson.trim();
+        try {
+            Type listType = new TypeToken<List<SignalDevice>>() {}.getType();
+            devices = gson.fromJson(json, listType);
+        } catch (Throwable ignored) {
+        }
+
+        if (devices == null || devices.isEmpty()) {
+            try {
+                com.google.gson.JsonElement element = new com.google.gson.JsonParser().parse(json);
+                if (element != null && element.isJsonArray()) {
+                    com.google.gson.JsonArray array = element.getAsJsonArray();
+                    devices = new ArrayList<>();
+                    for (com.google.gson.JsonElement item : array) {
+                        if (item.isJsonObject()) {
+                            try {
+                                SignalDevice d = gson.fromJson(item, SignalDevice.class);
+                                if (d != null) devices.add(d);
+                            } catch (Throwable ignored) {}
+                        } else if (item.isJsonPrimitive()) {
+                            String str = item.getAsString();
+                            if (str != null && !str.trim().isEmpty()) {
+                                devices.add(new SignalDevice(
+                                        str.trim(),
+                                        str.trim(),
+                                        DeviceType.BLUETOOTH_CLASSIC,
+                                        "未知厂商",
+                                        0,
+                                        null,
+                                        0.0,
+                                        fallbackTimestamp > 0 ? fallbackTimestamp : System.currentTimeMillis(),
+                                        fallbackTimestamp > 0 ? fallbackTimestamp : System.currentTimeMillis(),
+                                        false,
+                                        false,
+                                        false
+                                ));
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable e) {
+                android.util.Log.e("EntityMappers", "Failed to parse devices JSON", e);
+            }
+        }
+
+        return devices != null ? devices : new ArrayList<>();
     }
 
     
@@ -47,12 +97,18 @@ public class EntityMappers {
         
         String devicesJson = "";
         if (record.getDevices() != null && !record.getDevices().isEmpty()) {
-            devicesJson = gson.toJson(record.getDevices());
+            try {
+                devicesJson = gson.toJson(record.getDevices());
+            } catch (Throwable e) {
+                android.util.Log.e("EntityMappers", "Failed to serialize devices to JSON", e);
+                devicesJson = "";
+            }
         }
         
+        int scanTypeInt = record.getScanType() != null ? record.getScanType().toInt() : 0;
         ScanRecordEntity entity = new ScanRecordEntity(
             record.getTimestamp(),
-            record.getScanType().toInt(),
+            scanTypeInt,
             record.getDuration(),
             record.getLatitude(),
             record.getLongitude(),

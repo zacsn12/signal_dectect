@@ -23,13 +23,22 @@ org.zacsn.signal_dectect/
 │   │   ├── DeviceRepository.java      # Interface / Impl for handling list management
 │   │   └── ScanRepository.java        # Interface / Impl (coordinates Foreground Scan Service binding)
 │   │
-│   └── scanner/                       # Hardware abstraction & active scanners
+│   ├── scan/                          # Source adapters, aggregation, presence state, and tuning
+│   │   ├── ScanSource.kt              # Uniform lifecycle and observation interface
+│   │   ├── ControllerScanSources.kt   # Adapters for Bluetooth, WiFi, and cellular controllers
+│   │   ├── ScanEngine.kt              # Single-threaded device-state authority
+│   │   ├── ScanTuning.kt              # Centralized timing and RSSI constants
+│   │   ├── SignalDeviceMerge.kt       # Android-free merge rules shared with controllers
+│   │   ├── ManufacturerResolver.kt    # Manufacturer evidence resolution
+│   │   └── LanScanner.kt              # LAN subnet discovery engine
+│   │
+│   └── scanner/                       # Hardware-facing active scanners
 │       ├── BluetoothScanController.java      # BLE scanner & Classic BT discovery + GATT probing
 │       ├── WiFiScanController.java           # WiFi BSSID/SSID scanner + OUI lookup
 │       ├── CellularScanController.java       # Cellular network towers monitor (CellInfo & Telephony)
 │       ├── ExternalRadioAdapterManager.java  # External antenna/interface mapping coordinator
 │       ├── ScanSourceSelection.java          # Handles fallback configurations
-│       └── SignalDeviceStabilizer.java       # Rolling average calculations to smooth RSSI values
+│       └── SignalDeviceStabilizer.java       # Compatibility delegate to SignalDeviceMerge
 │
 ├── domain/                            # Business rules / Use Cases (pure Java/Kotlin logic)
 │   ├── alert/                         # Threat match algorithms (OUI, Brand, Keyword matching)
@@ -65,10 +74,14 @@ org.zacsn.signal_dectect/
 ### 2.1 Authentication, Licensing & Session Management
 - **Deterministic Machine Fingerprinting**: [MachineCodeUtils](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/util/MachineCodeUtils.java) generates a deterministic machine code prefixed with `MC-` by digesting the package name and `Settings.Secure.ANDROID_ID` using SHA-256. If ANDROID_ID is corrupted or unavailable (e.g., `9774d56d682e549c`), a UUID fallback is created and saved.
 - **REST Backend Authentication**: [AuthApiService](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/data/api/AuthApiService.java) makes calls to the server endpoint `http://47.82.157.64:1234/` for `/api/auth/login`, `/api/auth/me`, and `/api/auth/change-password`.
-- **Offline / Local Session Sync**: [SessionManager](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/util/SessionManager.java) stores user credentials, JWT tokens, bound machine codes, and licensing duration (`validUntil`). During startup, [MainActivity](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/MainActivity.java) sends the cached token to the `/api/auth/me` endpoint to validate license status. If the network call fails, the app falls back to local SharedPreferences state to allow offline functionality.
+- **Local Startup License Check**: [SessionManager](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/util/SessionManager.java) stores user credentials, JWT tokens, bound machine codes, and licensing duration (`validUntil`). On startup, [MainActivity](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/MainActivity.java) checks the locally cached license through `LicenseManager.hasValidLicense()`; it does not call `/api/auth/me` from `onCreate()`. Backend endpoints are used by explicit authentication and account flows.
 
 ### 2.2 Wireless Signal Scanning Infrastructure
-Scanning is driven by a bounded Android Foreground Service linked to the UI through a repository binder.
+Scanning is driven by a bounded Android Foreground Service linked to the UI through a repository binder. The ownership boundary is:
+
+**collection (`data/scanner`) → adaptation (`ScanSource`) → aggregation and presence state (`ScanEngine`) → presentation text (`DisplayMapper`)**.
+
+Controllers may keep private caches needed for protocol-specific behavior such as Apple address aliasing or GATT enrichment, but `ScanEngine` is the single authority for the application-visible device list. `DisplayMapper` owns user-facing status and fallback wording; adapters and views should not duplicate those strings.
 
 ```mermaid
 graph TD
@@ -76,23 +89,28 @@ graph TD
     VM -->|Execute UseCase| UC[StartScanUseCase / StopScanUseCase]
     UC -->|Query / Start| Repo[ScanRepositoryImpl]
     Repo -->|bindService / startForeground| Svc[SignalScanService]
-    Svc -->|startScan| BT[BluetoothScanController]
-    Svc -->|startScan| WiFi[WiFiScanController]
-    Svc -->|startScan| Cell[CellularScanController]
-    BT & WiFi & Cell -->|onDeviceFound / onSignalUpdate| Svc
-    Svc -->|Prune Stale & notify| Repo
+    Svc -->|start / stop| Sources[ScanSource adapters]
+    Sources --> BT[BluetoothScanController]
+    Sources --> WiFi[WiFiScanController]
+    Sources --> Cell[CellularScanController]
+    BT & WiFi & Cell -->|observations| Sources
+    Sources -->|submit| Engine[ScanEngine]
+    Engine -->|throttled snapshots| Svc
+    Svc -->|onDeviceListUpdated| Repo
     Repo -->|onDeviceListUpdated| VM
     VM -->|postValue| UI
+    UI -->|labels and fallback text| Display[DisplayMapper]
 ```
 
 #### 2.2.1 continuous Foreground Service ([SignalScanService](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/service/SignalScanService.java))
-- runs as a foreground service with `foregroundServiceType="location"`.
+- runs as a foreground service with `foregroundServiceType="location|connectedDevice"`.
 - Updates a persistent system notification displaying the count of discovered signals.
-- **Stale Device Pruner**: Since wireless devices move out of range, a handler task runs every **1.0 second** (`STALE_PRUNE_INTERVAL_MS`) to clear stale devices. If a device has not been refreshed within its corresponding type timeout, it is removed:
-  - Low Energy Bluetooth (BLE): **20 seconds**
-  - Classic Bluetooth (BT): **18 seconds**
-  - WiFi AP: **25 seconds**
-  - Cellular Cell Tower: **30 seconds**
+- **Presence State Machine**: `ScanEngine` evaluates monotonic elapsed time every **1.0 second** (`STALE_PRUNE_INTERVAL_MS`) and moves devices through `PresenceState.ACTIVE → MISSING → STALE`. A stale device remains visible for another **5 minutes** (`STALE_RETENTION_MS`) before removal:
+  - Low Energy Bluetooth (BLE): MISSING after **15 seconds**, STALE after **35 seconds**.
+  - Classic Bluetooth (BT): MISSING after **25 seconds**, STALE after **50 seconds**.
+  - WiFi AP: MISSING after **30 seconds**, STALE after **70 seconds**.
+  - Cellular Cell Tower: MISSING after **40 seconds**, STALE after **90 seconds**.
+- Device-table snapshots are refreshed immediately after a mutation, while listener callbacks are coalesced to at most once per **400 ms** (`EMIT_INTERVAL_MS`). This keeps repository reads current without forwarding every BLE observation to LiveData and notification updates.
 
 #### 2.2.2 Bluetooth Scanning & Active Probing ([BluetoothScanController](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/data/scanner/BluetoothScanController.java))
 - **Dual Mode Scan**:
@@ -170,9 +188,10 @@ The database is built on **Room** (`signal_detect_db`), configured in [AppDataba
 
 ### 4.1 How to Add a New Scan Protocol
 1. **Define Device Type**: Extend `DeviceType` enum in `domain/model` if required.
-2. **Implement Scan Controller**: Create a controller under `data/scanner/`. Implement `startScan()`, `stopScan()`, and set up callbacks.
-3. **Register in Service**: Inject the new controller in `SignalScanService.java`. Update `startScan(ScanType)` and `stopScan()` to trigger it, and update `isDeviceMatchingScanType()` to map your new device category.
-4. **Update UI & ViewModels**: Add filtering support in `SignalInspectViewModel.java` and bind layout items in `SignalInspectActivity.java`.
+2. **Implement Collection**: Create the hardware-facing controller under `data/scanner/`, keeping protocol callbacks and any protocol-private cache inside that controller.
+3. **Adapt to `ScanSource`**: Implement `ScanSource` under `data/scan/`; translate controller callbacks into normalized `SignalDevice` observations and declare which `ScanType` values the source supports.
+4. **Register Once**: Add the new source to `SignalScanService.setupScanListeners()`. The service already starts/stops sources generically and sends every observation to `ScanEngine`; do not add another service-side device map or protocol-specific aggregation branch.
+5. **Centralize Presentation**: Add new status/fallback wording to `DisplayMapper`, then update filters or layouts only where the new `DeviceType` requires a distinct visual treatment.
 
 ### 4.2 How to Customize or Debug Alert Audio
 1. **Locate Sound Classes**: Check [SoundEffectManager.java](file:///data/desktop/projects/signal_dectect/app/src/main/java/org/zacsn/signal_dectect/util/SoundEffectManager.java).

@@ -60,6 +60,7 @@ public class DatabaseModule {
         }
     };
     
+    
     /**
      * Provides the singleton AppDatabase instance.
      * 
@@ -76,6 +77,7 @@ public class DatabaseModule {
         )
         .addMigrations(MIGRATION_1_2)
         .addMigrations(MIGRATION_2_3)
+        .fallbackToDestructiveMigration()
         .build();
     }
     
@@ -90,7 +92,6 @@ public class DatabaseModule {
     public ScanRecordDao provideScanRecordDao(AppDatabase database) {
         return database.scanRecordDao();
     }
-    
     /**
      * Provides WatchlistDao for watchlist operations.
      * 

@@ -166,6 +166,17 @@
                 android:nestedScrollingEnabled="false"
                 android:clipToPadding="false" />
 
+            <TextView
+                android:id="@+id/tv_empty_devices"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="本次巡检未保存设备数据"
+                android:textColor="#94A3B8"
+                android:gravity="center"
+                android:paddingVertical="32dp"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

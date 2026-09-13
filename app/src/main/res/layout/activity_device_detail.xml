@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@drawable/bg_main_background">
 
     <!-- Top Gradient Header Area -->
     <FrameLayout
+        android:id="@+id/detail_header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#0A1E36"
-        android:paddingBottom="48dp">
+        android:elevation="2dp"
+        android:paddingBottom="36dp">
 
         <!-- Radar Ring Background Watermark -->
         <View
@@ -26,11 +29,12 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Custom Toolbar -->
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
+                android:background="@android:color/transparent"
+                app:navigationIcon="@drawable/ic_back"
                 app:navigationIconTint="#FFFFFF"
                 app:title="设备详情"
                 app:titleTextColor="#FFFFFF"
@@ -41,14 +45,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:layout_marginTop="16dp">
+                android:layout_marginTop="12dp">
                 
                 <!-- Circular Gauge -->
                 <ProgressBar
                     android:id="@+id/signal_gauge"
                     style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
+                    android:layout_width="190dp"
+                    android:layout_height="190dp"
                     android:indeterminate="false"
                     android:max="100"
                     android:progress="50"
@@ -66,426 +70,962 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="-83 dBm"
-                        android:textSize="36sp"
+                        android:textSize="32sp"
                         android:textColor="#FFFFFF"
                         android:fontFamily="sans-serif-black" />
                         
                     <TextView
+                        android:id="@+id/tv_signal_quality"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="信号强度"
-                        android:textSize="12sp"
-                        android:textColor="#E0E7FF"
+                        android:text="信号良好"
+                        android:textSize="13sp"
+                        android:textColor="#93C5FD"
+                        android:fontFamily="sans-serif-bold"
                         android:layout_marginTop="2dp" />
+
+                    <TextView
+                        android:id="@+id/tv_serving_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="当前服务基站"
+                        android:textSize="11sp"
+                        android:textColor="#065F46"
+                        android:background="@drawable/bg_pill_green"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="3dp"
+                        android:fontFamily="sans-serif-bold"
+                        android:layout_marginTop="6dp"
+                        android:visibility="gone" />
                 </LinearLayout>
             </FrameLayout>
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Scrollable Content Overlapping Header -->
+    <!-- Scroll Layer -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingTop="320dp"
         android:paddingBottom="40dp">
 
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="20dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="12dp"
-            app:strokeWidth="0dp"
-            app:cardBackgroundColor="?attr/colorSurface">
+            android:orientation="vertical">
 
+            <!-- CELLULAR BASE STATION DEDICATED CONTAINER -->
             <LinearLayout
+                android:id="@+id/layout_cellular_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="24dp">
+                android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/tv_card_title"
+                <!-- Card 1: Network Overview -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="设备信息"
-                    android:textSize="20sp"
-                    android:fontFamily="sans-serif-black"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="24dp" />
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginTop="16dp"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="6dp"
+                    app:strokeWidth="0dp"
+                    app:cardBackgroundColor="?attr/colorSurface">
 
-                <!-- Row: MAC Address -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="MAC 地址"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_mac_address"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="00:00:00:00:00:00"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="monospace" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: Device Type -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:id="@+id/label_device_type"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="设备类型"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_device_type"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="蓝牙设备"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: Device Name -->
-                <LinearLayout
-                    android:id="@+id/layout_device_name"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:id="@+id/label_device_name"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="设备名称"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <TextView
-                        android:id="@+id/tv_device_name_hint"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="详情"
-                        android:textColor="#94A3B8"
-                        android:textSize="12sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_device_name"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:gravity="end"
-                        android:maxLines="1"
-                        android:text="未知设备"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: Distance -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="估计距离"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_distance"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="~0.0米"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: Signal Strength -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="精确强度"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_signal_strength_value"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="-100 dBm"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: Device Class -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="设备描述"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_device_class"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="未知"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: Manufacturer -->
-                <LinearLayout
-                    android:id="@+id/layout_manufacturer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="厂商识别"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="详情"
-                        android:textColor="#94A3B8"
-                        android:textSize="12sp"
-                        android:fontFamily="sans-serif-medium" />
-
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_manufacturer"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:gravity="end"
-                        android:maxLines="1"
-                        android:text="未知"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <!-- Row: Frequency (only visible sometimes) -->
-                <LinearLayout
-                    android:id="@+id/layout_frequency"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#10000000" />
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingVertical="12dp"
-                        android:gravity="center_vertical">
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
                         <TextView
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="工作频率"
-                            android:textColor="#64748B"
-                            android:textSize="14sp"
-                            android:fontFamily="sans-serif-medium" />
-                        <Space
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1" />
-                        <TextView
-                            android:id="@+id/tv_frequency"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="未知"
+                            android:text="蜂窝网络概览"
+                            android:textSize="17sp"
+                            android:fontFamily="sans-serif-black"
                             android:textColor="?attr/colorOnSurface"
-                            android:textSize="14sp"
-                            android:fontFamily="sans-serif-medium" />
+                            android:layout_marginBottom="16dp" />
+
+                        <!-- Operator Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="运营商"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_operator"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="中国移动"
+                                android:textColor="@color/primary"
+                                android:background="@drawable/bg_pill_blue"
+                                android:paddingHorizontal="10dp"
+                                android:paddingVertical="4dp"
+                                android:fontFamily="sans-serif-bold"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- PLMN Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="公共网络 (PLMN)"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_plmn"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="46000"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- Radio Type Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="网络制式"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_radio_type"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="5G NR"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-bold" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- Serving Status Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="小区服务状态"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_serving_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="当前主服小区 (已注册)"
+                                android:textColor="#059669"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-bold" />
+                        </LinearLayout>
+
                     </LinearLayout>
-                </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
-
-                <!-- Row: First Seen -->
-                <LinearLayout
+                <!-- Card 2: Cell Identity & RF Parameters -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="首次发现"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_first_seen"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="未知"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginTop="16dp"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="6dp"
+                    app:strokeWidth="0dp"
+                    app:cardBackgroundColor="?attr/colorSurface">
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#10000000" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
 
-                <!-- Row: Last Seen -->
-                <LinearLayout
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="小区身份与射频参数"
+                            android:textSize="17sp"
+                            android:fontFamily="sans-serif-black"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginBottom="16dp" />
+
+                        <!-- Cell ID Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:id="@+id/label_cellular_cell_id"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="小区标识 (Cell ID)"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_cell_id"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="12345678"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- PCI Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:id="@+id/label_cellular_pci"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="物理小区标识 (PCI)"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_pci"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="235"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- TAC / Area Code Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:id="@+id/label_cellular_tac"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="跟踪区码 (TAC)"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_tac"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="41235"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- Channel / ARFCN Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:id="@+id/label_cellular_channel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="载波频点 (ARFCN)"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_channel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="627264"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- Exact Signal Strength Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="接收电平 (RSRP / dBm)"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_signal_dbm"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="-78 dBm"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-bold" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Card 3: Timestamps & Sampling Log -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingVertical="12dp"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="wrap_content"
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginTop="16dp"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="6dp"
+                    app:strokeWidth="0dp"
+                    app:cardBackgroundColor="?attr/colorSurface">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="最近发现"
-                        android:textColor="#64748B"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                    <Space
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1" />
-                    <TextView
-                        android:id="@+id/tv_last_seen"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="未知"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="巡检记录与特征证据"
+                            android:textSize="17sp"
+                            android:fontFamily="sans-serif-black"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginBottom="16dp" />
+
+                        <!-- First Seen Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="首次发现"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_first_seen"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="未知"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- Last Seen Row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="最近发现"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_last_seen"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="未知"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#0F000000" />
+
+                        <!-- Sampling Evidence Row -->
+                        <LinearLayout
+                            android:id="@+id/layout_cellular_evidence"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="10dp"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="采样证据"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="详情"
+                                android:textColor="#94A3B8"
+                                android:textSize="12sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_cellular_evidence"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="16dp"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:gravity="end"
+                                android:maxLines="1"
+                                android:text="查看完整特征"
+                                android:textColor="@color/primary"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+
+            <!-- STANDARD (WIFI / BLUETOOTH) DEVICE CONTAINER -->
+            <LinearLayout
+                android:id="@+id/layout_standard_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="visible">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginTop="16dp"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="12dp"
+                    app:strokeWidth="0dp"
+                    app:cardBackgroundColor="?attr/colorSurface">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="24dp">
+
+                        <TextView
+                            android:id="@+id/tv_card_title"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="设备信息"
+                            android:textSize="20sp"
+                            android:fontFamily="sans-serif-black"
+                            android:textColor="?attr/colorOnSurface"
+                            android:layout_marginBottom="24dp" />
+
+                        <!-- Row: MAC Address -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="MAC 地址"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_mac_address"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="00:00:00:00:00:00"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Device Type -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:id="@+id/label_device_type"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="设备类型"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_device_type"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="蓝牙设备"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Device Name -->
+                        <LinearLayout
+                            android:id="@+id/layout_device_name"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:id="@+id/label_device_name"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="设备名称"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <TextView
+                                android:id="@+id/tv_device_name_hint"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="详情"
+                                android:textColor="#94A3B8"
+                                android:textSize="12sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_device_name"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="16dp"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:gravity="end"
+                                android:maxLines="1"
+                                android:text="未知设备"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Distance -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="估计距离"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_distance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="~0.0米"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Signal Strength -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="精确强度"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_signal_strength_value"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="-100 dBm"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Device Class -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="设备描述"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_device_class"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="未知"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Manufacturer -->
+                        <LinearLayout
+                            android:id="@+id/layout_manufacturer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="厂商识别"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:text="详情"
+                                android:textColor="#94A3B8"
+                                android:textSize="12sp"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_manufacturer"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="16dp"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:gravity="end"
+                                android:maxLines="1"
+                                android:text="未知"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <!-- Row: Frequency (only visible sometimes) -->
+                        <LinearLayout
+                            android:id="@+id/layout_frequency"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="#10000000" />
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:paddingVertical="12dp"
+                                android:gravity="center_vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="工作频率"
+                                    android:textColor="#64748B"
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
+                                <Space
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1" />
+                                <TextView
+                                    android:id="@+id/tv_frequency"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="未知"
+                                    android:textColor="?attr/colorOnSurface"
+                                    android:textSize="14sp"
+                                    android:fontFamily="sans-serif-medium" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: First Seen -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="首次发现"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_first_seen"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="未知"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#10000000" />
+
+                        <!-- Row: Last Seen -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:paddingVertical="12dp"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="最近发现"
+                                android:textColor="#64748B"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                            <Space
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+                            <TextView
+                                android:id="@+id/tv_last_seen"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="未知"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+        </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</LinearLayout>

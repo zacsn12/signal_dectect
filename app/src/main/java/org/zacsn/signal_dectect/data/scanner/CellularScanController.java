@@ -20,6 +20,7 @@ import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 import androidx.core.app.ActivityCompat;
 
 import org.zacsn.signal_dectect.domain.model.DeviceType;
@@ -36,6 +37,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
  */
 @Singleton
 public class CellularScanController {
+    private static final String TAG = "CellularScanController";
     
     private final Context context;
     private final TelephonyManager telephonyManager;
@@ -223,7 +225,11 @@ public class CellularScanController {
     }
 
     private void publishFallbackOperatorDevice(SignalStrength signalStrength) {
-        if (!isScanning) {
+        // Android 12 may not deliver the first SignalStrength until after the
+        // initial getAllCellInfo() attempt.  Do not manufacture a fallback
+        // observation from a null framework value; the callback will publish
+        // it once telephony has a real signal snapshot.
+        if (!isScanning || signalStrength == null) {
             return;
         }
         int rawDbm = getSignalStrengthDbm(signalStrength);
@@ -233,7 +239,7 @@ public class CellularScanController {
         String deviceKey = "CELLULAR_OPERATOR_" + networkOperator + "_" + networkType;
         SignalDevice previous = cellularDevices.get(deviceKey);
         int dbm = SignalDeviceStabilizer.smoothSignalStrength(previous, rawDbm);
-        int level = signalStrength != null ? signalStrength.getLevel() : -1;
+        int level = safeGetSignalLevel(signalStrength);
         long now = System.currentTimeMillis();
         String evidence = "运营商=" + operatorName
                 + ", PLMN=" + networkOperator
@@ -272,95 +278,141 @@ public class CellularScanController {
      * Get signal strength in dBm from SignalStrength object.
      */
     private int getSignalStrengthDbm(SignalStrength signalStrength) {
+        // startScan() intentionally performs an initial CellInfo refresh before
+        // Android has necessarily delivered SignalStrength.  Keep the null case
+        // completely outside framework calls (some Android 12 OEM builds expose
+        // this as a fatal getCellSignalStrengths() NPE).
+        if (signalStrength == null) {
+            return -113;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+
-            java.util.List<CellSignalStrength> cellSignalStrengths = 
-                signalStrength.getCellSignalStrengths();
-            if (!cellSignalStrengths.isEmpty()) {
-                int bestDbm = Integer.MIN_VALUE;
-                for (CellSignalStrength cellSignalStrength : cellSignalStrengths) {
-                    int dbm = cellSignalStrength.getDbm();
-                    if (dbm > -150 && dbm < 0 && dbm > bestDbm) {
-                        bestDbm = dbm;
+            try {
+                // Android 10+ (Wrap in try-catch in case framework's getCellSignalStrengths() throws NPE on OEM ROMs)
+                java.util.List<CellSignalStrength> cellSignalStrengths = 
+                    signalStrength.getCellSignalStrengths();
+                if (cellSignalStrengths != null && !cellSignalStrengths.isEmpty()) {
+                    int bestDbm = Integer.MIN_VALUE;
+                    for (CellSignalStrength cellSignalStrength : cellSignalStrengths) {
+                        if (cellSignalStrength != null) {
+                            int dbm = cellSignalStrength.getDbm();
+                            if (dbm > -150 && dbm < 0 && dbm > bestDbm) {
+                                bestDbm = dbm;
+                            }
+                        }
+                    }
+                    if (bestDbm != Integer.MIN_VALUE) {
+                        return bestDbm;
                     }
                 }
-                if (bestDbm != Integer.MIN_VALUE) {
-                    return bestDbm;
-                }
+            } catch (Throwable e) {
+                Log.e(TAG, "Error getting cell signal strengths from system SignalStrength object", e);
             }
         }
         
-        // Fallback for older versions
+        // Fallback for older versions or when the framework throws an exception.
         // Approximate conversion: level 0-4 maps to -113 to -51 dBm
-        int level = signalStrength != null ? signalStrength.getLevel() : 0;
-        return -113 + (level * 28);
+        int level = safeGetSignalLevel(signalStrength);
+        if (level < 0) {
+            level = 0;
+        } else if (level > 4) {
+            level = 4;
+        }
+        return Math.round(-113f + level * 15.5f);
+    }
+
+    private int safeGetSignalLevel(SignalStrength signalStrength) {
+        if (signalStrength == null) {
+            return 0;
+        }
+        try {
+            return signalStrength.getLevel();
+        } catch (Throwable e) {
+            Log.e(TAG, "Error getting signal level from system SignalStrength object", e);
+            return 0;
+        }
+    }
+
+    private int safeGetDbm(CellSignalStrength css) {
+        if (css != null) {
+            try {
+                return css.getDbm();
+            } catch (Throwable ignored) {
+            }
+        }
+        return -999;
     }
 
     private CellularIdentity parseCellInfo(CellInfo cellInfo) {
-        if (cellInfo instanceof CellInfoLte) {
-            CellInfoLte lte = (CellInfoLte) cellInfo;
-            CellIdentityLte identity = lte.getCellIdentity();
-            return new CellularIdentity(
-                    "4G LTE",
-                    getPlmn(identity),
-                    valueOrUnknown(identity.getTac()),
-                    valueOrUnknown(identity.getCi()),
-                    valueOrUnknown(identity.getPci()),
-                    getLteEarfcn(identity),
-                    lte.getCellSignalStrength().getDbm()
-            );
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && cellInfo instanceof CellInfoNr) {
-            CellInfoNr nr = (CellInfoNr) cellInfo;
-            CellIdentityNr identity = (CellIdentityNr) nr.getCellIdentity();
-            return new CellularIdentity(
-                    "5G NR",
-                    getPlmn(identity),
-                    valueOrUnknown(identity.getTac()),
-                    valueOrUnknown(identity.getNci()),
-                    valueOrUnknown(identity.getPci()),
-                    valueOrUnknown(identity.getNrarfcn()),
-                    nr.getCellSignalStrength().getDbm()
-            );
-        }
-        if (cellInfo instanceof CellInfoWcdma) {
-            CellInfoWcdma wcdma = (CellInfoWcdma) cellInfo;
-            CellIdentityWcdma identity = wcdma.getCellIdentity();
-            return new CellularIdentity(
-                    "3G WCDMA",
-                    getPlmn(identity),
-                    valueOrUnknown(identity.getLac()),
-                    valueOrUnknown(identity.getCid()),
-                    valueOrUnknown(identity.getPsc()),
-                    valueOrUnknown(identity.getUarfcn()),
-                    wcdma.getCellSignalStrength().getDbm()
-            );
-        }
-        if (cellInfo instanceof CellInfoGsm) {
-            CellInfoGsm gsm = (CellInfoGsm) cellInfo;
-            CellIdentityGsm identity = gsm.getCellIdentity();
-            return new CellularIdentity(
-                    "2G GSM",
-                    getPlmn(identity),
-                    valueOrUnknown(identity.getLac()),
-                    valueOrUnknown(identity.getCid()),
-                    valueOrUnknown(identity.getPsc()),
-                    valueOrUnknown(identity.getArfcn()),
-                    gsm.getCellSignalStrength().getDbm()
-            );
-        }
-        if (cellInfo instanceof CellInfoCdma) {
-            CellInfoCdma cdma = (CellInfoCdma) cellInfo;
-            CellIdentityCdma identity = cdma.getCellIdentity();
-            return new CellularIdentity(
-                    "CDMA",
-                    "",
-                    valueOrUnknown(identity.getNetworkId()),
-                    valueOrUnknown(identity.getBasestationId()),
-                    valueOrUnknown(identity.getSystemId()),
-                    "unknown",
-                    cdma.getCellSignalStrength().getDbm()
-            );
+        if (cellInfo == null) return null;
+        try {
+            if (cellInfo instanceof CellInfoLte) {
+                CellInfoLte lte = (CellInfoLte) cellInfo;
+                CellIdentityLte identity = lte.getCellIdentity();
+                return new CellularIdentity(
+                        "4G LTE",
+                        getPlmn(identity),
+                        valueOrUnknown(identity != null ? identity.getTac() : -1),
+                        valueOrUnknown(identity != null ? identity.getCi() : -1),
+                        valueOrUnknown(identity != null ? identity.getPci() : -1),
+                        getLteEarfcn(identity),
+                        safeGetDbm(lte.getCellSignalStrength())
+                );
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && cellInfo instanceof CellInfoNr) {
+                CellInfoNr nr = (CellInfoNr) cellInfo;
+                CellIdentityNr identity = (CellIdentityNr) nr.getCellIdentity();
+                return new CellularIdentity(
+                        "5G NR",
+                        getPlmn(identity),
+                        valueOrUnknown(identity != null ? identity.getTac() : -1),
+                        valueOrUnknown(identity != null ? identity.getNci() : -1),
+                        valueOrUnknown(identity != null ? identity.getPci() : -1),
+                        valueOrUnknown(identity != null ? identity.getNrarfcn() : -1),
+                        safeGetDbm(nr.getCellSignalStrength())
+                );
+            }
+            if (cellInfo instanceof CellInfoWcdma) {
+                CellInfoWcdma wcdma = (CellInfoWcdma) cellInfo;
+                CellIdentityWcdma identity = wcdma.getCellIdentity();
+                return new CellularIdentity(
+                        "3G WCDMA",
+                        getPlmn(identity),
+                        valueOrUnknown(identity != null ? identity.getLac() : -1),
+                        valueOrUnknown(identity != null ? identity.getCid() : -1),
+                        valueOrUnknown(identity != null ? identity.getPsc() : -1),
+                        valueOrUnknown(identity != null ? identity.getUarfcn() : -1),
+                        safeGetDbm(wcdma.getCellSignalStrength())
+                );
+            }
+            if (cellInfo instanceof CellInfoGsm) {
+                CellInfoGsm gsm = (CellInfoGsm) cellInfo;
+                CellIdentityGsm identity = gsm.getCellIdentity();
+                return new CellularIdentity(
+                        "2G GSM",
+                        getPlmn(identity),
+                        valueOrUnknown(identity != null ? identity.getLac() : -1),
+                        valueOrUnknown(identity != null ? identity.getCid() : -1),
+                        valueOrUnknown(identity != null ? identity.getPsc() : -1),
+                        valueOrUnknown(identity != null ? identity.getArfcn() : -1),
+                        safeGetDbm(gsm.getCellSignalStrength())
+                );
+            }
+            if (cellInfo instanceof CellInfoCdma) {
+                CellInfoCdma cdma = (CellInfoCdma) cellInfo;
+                CellIdentityCdma identity = cdma.getCellIdentity();
+                return new CellularIdentity(
+                        "CDMA",
+                        "",
+                        valueOrUnknown(identity != null ? identity.getNetworkId() : -1),
+                        valueOrUnknown(identity != null ? identity.getBasestationId() : -1),
+                        valueOrUnknown(identity != null ? identity.getSystemId() : -1),
+                        "unknown",
+                        safeGetDbm(cdma.getCellSignalStrength())
+                );
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "Error parsing cell info", e);
         }
         return null;
     }

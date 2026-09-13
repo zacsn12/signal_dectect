@@ -62,6 +62,15 @@ public class SignalDevice {
     @SerializedName("isWhitelisted")
     private final boolean isWhitelisted;
 
+    @SerializedName("isStale")
+    private final boolean isStale;
+
+    @SerializedName("presenceState")
+    private final PresenceState presenceState;
+
+    /** Monotonic timestamp for runtime timeout checks; not persisted. */
+    private transient final long lastSeenElapsedRealtime;
+
     /**
      * Private no-arg constructor for Gson deserialization.
      * This constructor should not be used directly.
@@ -85,13 +94,16 @@ public class SignalDevice {
         this.isFocused = false;
         this.isBlacklisted = false;
         this.isWhitelisted = false;
+        this.isStale = false;
+        this.presenceState = PresenceState.ACTIVE;
+        this.lastSeenElapsedRealtime = 0L;
     }
 
     public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
                        String manufacturer, int signalStrength, Integer frequency,
                        double distance, long firstSeen, long lastSeen,
                        boolean isFocused, boolean isBlacklisted, boolean isWhitelisted) {
-        this(macAddress, deviceName, deviceType, manufacturer, "unknown", 0,
+        this(macAddress, deviceName, deviceType, manufacturer, manufacturer, "unknown", 0,
                 signalStrength, frequency, distance, firstSeen, lastSeen,
                 isFocused, isBlacklisted, isWhitelisted);
     }
@@ -116,7 +128,7 @@ public class SignalDevice {
                 manufacturerSource, manufacturerConfidence,
                 inferVerdict(manufacturerSource, manufacturerConfidence), "",
                 signalStrength, frequency, distance, firstSeen, lastSeen,
-                isFocused, isBlacklisted, isWhitelisted);
+                isFocused, isBlacklisted, isWhitelisted, false);
     }
 
     public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
@@ -126,6 +138,36 @@ public class SignalDevice {
                        int signalStrength, Integer frequency, double distance,
                        long firstSeen, long lastSeen,
                        boolean isFocused, boolean isBlacklisted, boolean isWhitelisted) {
+        this(macAddress, deviceName, deviceType, manufacturer, candidateManufacturer,
+                manufacturerSource, manufacturerConfidence, manufacturerVerdict, manufacturerEvidence,
+                signalStrength, frequency, distance, firstSeen, lastSeen,
+                isFocused, isBlacklisted, isWhitelisted, false);
+    }
+
+    public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
+                       String manufacturer, String candidateManufacturer,
+                       String manufacturerSource, int manufacturerConfidence,
+                       ManufacturerVerdict manufacturerVerdict, String manufacturerEvidence,
+                       int signalStrength, Integer frequency, double distance,
+                       long firstSeen, long lastSeen,
+                       boolean isFocused, boolean isBlacklisted, boolean isWhitelisted,
+                       boolean isStale) {
+        this(macAddress, deviceName, deviceType, manufacturer, candidateManufacturer,
+                manufacturerSource, manufacturerConfidence, manufacturerVerdict, manufacturerEvidence,
+                signalStrength, frequency, distance, firstSeen, lastSeen,
+                isFocused, isBlacklisted, isWhitelisted,
+                isStale ? PresenceState.STALE : PresenceState.ACTIVE,
+                android.os.SystemClock.elapsedRealtime());
+    }
+
+    public SignalDevice(String macAddress, String deviceName, DeviceType deviceType,
+                       String manufacturer, String candidateManufacturer,
+                       String manufacturerSource, int manufacturerConfidence,
+                       ManufacturerVerdict manufacturerVerdict, String manufacturerEvidence,
+                       int signalStrength, Integer frequency, double distance,
+                       long firstSeen, long lastSeen,
+                       boolean isFocused, boolean isBlacklisted, boolean isWhitelisted,
+                       PresenceState presenceState, long lastSeenElapsedRealtime) {
         this.macAddress = macAddress;
         this.deviceName = deviceName;
         this.deviceType = deviceType;
@@ -145,6 +187,9 @@ public class SignalDevice {
         this.isFocused = isFocused;
         this.isBlacklisted = isBlacklisted;
         this.isWhitelisted = isWhitelisted;
+        this.presenceState = presenceState != null ? presenceState : PresenceState.ACTIVE;
+        this.isStale = this.presenceState == PresenceState.STALE;
+        this.lastSeenElapsedRealtime = lastSeenElapsedRealtime;
     }
 
     /**
@@ -163,27 +208,27 @@ public class SignalDevice {
 
     // Getters
     public String getMacAddress() {
-        return macAddress;
+        return macAddress != null ? macAddress : "";
     }
 
     public String getDeviceName() {
-        return deviceName;
+        return deviceName != null ? deviceName : "";
     }
 
     public DeviceType getDeviceType() {
-        return deviceType;
+        return deviceType != null ? deviceType : DeviceType.BLUETOOTH_CLASSIC;
     }
 
     public String getManufacturer() {
-        return manufacturer;
+        return manufacturer != null ? manufacturer : "";
     }
 
     public String getCandidateManufacturer() {
-        return candidateManufacturer;
+        return candidateManufacturer != null ? candidateManufacturer : "";
     }
 
     public String getManufacturerSource() {
-        return manufacturerSource;
+        return manufacturerSource != null ? manufacturerSource : "unknown";
     }
 
     public int getManufacturerConfidence() {
@@ -197,7 +242,7 @@ public class SignalDevice {
     }
 
     public String getManufacturerEvidence() {
-        return manufacturerEvidence;
+        return manufacturerEvidence != null ? manufacturerEvidence : "";
     }
 
     public int getSignalStrength() {
@@ -232,6 +277,52 @@ public class SignalDevice {
         return isWhitelisted;
     }
 
+    public boolean isStale() {
+        return getPresenceState() == PresenceState.STALE;
+    }
+
+    public boolean isMissing() {
+        return getPresenceState() == PresenceState.MISSING;
+    }
+
+    public PresenceState getPresenceState() {
+        if (presenceState != null) {
+            return presenceState;
+        }
+        return isStale ? PresenceState.STALE : PresenceState.ACTIVE;
+    }
+
+    public long getLastSeenElapsedRealtime() {
+        return lastSeenElapsedRealtime;
+    }
+
+    public SignalDevice withStale(boolean stale) {
+        return withPresenceState(stale ? PresenceState.STALE : PresenceState.ACTIVE);
+    }
+
+    public SignalDevice withPresenceState(PresenceState state) {
+        PresenceState nextState = state != null ? state : PresenceState.ACTIVE;
+        if (getPresenceState() == nextState) {
+            return this;
+        }
+        return new SignalDevice(
+                macAddress, deviceName, deviceType, manufacturer, candidateManufacturer,
+                manufacturerSource, manufacturerConfidence, manufacturerVerdict, manufacturerEvidence,
+                signalStrength, frequency, distance, firstSeen, lastSeen,
+                isFocused, isBlacklisted, isWhitelisted, nextState,
+                lastSeenElapsedRealtime
+        );
+    }
+
+    public SignalDevice refreshedAt(long elapsedRealtime) {
+        return new SignalDevice(
+                macAddress, deviceName, deviceType, manufacturer, candidateManufacturer,
+                manufacturerSource, manufacturerConfidence, manufacturerVerdict, manufacturerEvidence,
+                signalStrength, frequency, distance, firstSeen, lastSeen,
+                isFocused, isBlacklisted, isWhitelisted, PresenceState.ACTIVE, elapsedRealtime
+        );
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -244,6 +335,7 @@ public class SignalDevice {
                 isFocused == that.isFocused &&
                 isBlacklisted == that.isBlacklisted &&
                 isWhitelisted == that.isWhitelisted &&
+                getPresenceState() == that.getPresenceState() &&
                 Objects.equals(macAddress, that.macAddress) &&
                 Objects.equals(deviceName, that.deviceName) &&
                 deviceType == that.deviceType &&
@@ -262,7 +354,7 @@ public class SignalDevice {
                 candidateManufacturer, manufacturerSource, manufacturerConfidence,
                 getManufacturerVerdict(), manufacturerEvidence, signalStrength,
                 frequency, distance, firstSeen, lastSeen,
-                isFocused, isBlacklisted, isWhitelisted);
+                isFocused, isBlacklisted, isWhitelisted, getPresenceState());
     }
 
     @Override
@@ -285,6 +377,7 @@ public class SignalDevice {
                 ", isFocused=" + isFocused +
                 ", isBlacklisted=" + isBlacklisted +
                 ", isWhitelisted=" + isWhitelisted +
+                ", isStale=" + isStale +
                 '}';
     }
 
@@ -309,6 +402,7 @@ public class SignalDevice {
         private boolean isFocused = false;
         private boolean isBlacklisted = false;
         private boolean isWhitelisted = false;
+        private boolean isStale = false;
 
         public Builder macAddress(String macAddress) {
             this.macAddress = macAddress;
@@ -395,12 +489,17 @@ public class SignalDevice {
             return this;
         }
 
+        public Builder isStale(boolean isStale) {
+            this.isStale = isStale;
+            return this;
+        }
+
         public SignalDevice build() {
             return new SignalDevice(macAddress, deviceName, deviceType, manufacturer,
                     candidateManufacturer, manufacturerSource, manufacturerConfidence,
                     manufacturerVerdict, manufacturerEvidence, signalStrength,
                     frequency, distance, firstSeen, lastSeen,
-                    isFocused, isBlacklisted, isWhitelisted);
+                    isFocused, isBlacklisted, isWhitelisted, isStale);
         }
     }
 

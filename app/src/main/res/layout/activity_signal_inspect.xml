@@ -176,26 +176,39 @@
             android:layout_marginBottom="12dp">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:singleLine="true"
                 android:text="探测设备列表"
                 android:textSize="16sp"
                 android:fontFamily="sans-serif-black"
                 android:textColor="#0F172A" />
 
             <!-- Device Count Badge -->
-            <TextView
+            <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/tv_device_count"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:ellipsize="end"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:gravity="center"
+                android:minHeight="36dp"
+                android:singleLine="true"
                 android:text="设备数: 0"
                 android:textColor="#2563EB"
                 android:background="@drawable/bg_pill_blue"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:paddingVertical="4dp"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-bold" />
+                android:fontFamily="sans-serif-bold"
+                app:autoSizeMaxTextSize="12sp"
+                app:autoSizeMinTextSize="9sp"
+                app:autoSizeStepGranularity="1sp"
+                app:autoSizeTextType="uniform" />
 
             <Space
                 android:layout_width="8dp"

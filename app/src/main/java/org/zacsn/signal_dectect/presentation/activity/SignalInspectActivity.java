@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import com.google.gson.Gson;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import org.zacsn.signal_dectect.data.database.BlacklistDao;
 import org.zacsn.signal_dectect.data.database.BlacklistItemEntity;
 import org.zacsn.signal_dectect.data.database.ScanRecordDao;
@@ -38,6 +39,7 @@ public class SignalInspectActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "signal_inspect_settings";
     private static final String KEY_SELECTED_DISTANCE_METERS = "selected_distance_meters";
     private static final float DEFAULT_SELECTED_DISTANCE_METERS = 5.0f;
+    private static final long DEVICE_LIST_UPDATE_DEBOUNCE_MS = 500L;
     
     private ActivitySignalInspectBinding binding;
     private SignalInspectViewModel viewModel;
@@ -66,6 +68,18 @@ public class SignalInspectActivity extends AppCompatActivity {
     private long scanStartTime = 0;
     private double selectedDistanceMeters = 0.0;
     private volatile boolean isSavingRecord = false;
+    private java.util.List<SignalDevice> pendingVisibleDevices = new java.util.ArrayList<>();
+    private int activeDeviceCount = 0;
+    private int missingDeviceCount = 0;
+    private int staleDeviceCount = 0;
+    private final Runnable applyPendingDeviceListRunnable = () -> {
+        synchronized (this) {
+            latestVisibleDevices = new java.util.ArrayList<>(pendingVisibleDevices);
+            currentDevices = new java.util.ArrayList<>(pendingVisibleDevices);
+        }
+        java.util.List<SignalDevice> sortedDevices = refreshDeviceList();
+        checkConfiguredAlerts(sortedDevices);
+    };
     
     @Inject
     ScanRecordDao scanRecordDao;
@@ -101,9 +115,6 @@ public class SignalInspectActivity extends AppCompatActivity {
                 case "LAN":
                     scanType = ScanType.WIFI_ONLY;
                     break;
-                case "CELLULAR":
-                    scanType = ScanType.CELLULAR_ONLY;
-                    break;
                 default:
                     scanType = ScanType.ALL;
                     break;
@@ -117,6 +128,7 @@ public class SignalInspectActivity extends AppCompatActivity {
         selectedDistanceMeters = loadSelectedDistanceMeters();
 
         binding.btnDistance.setOnClickListener(v -> showDistanceSettingDialog());
+        binding.tvDeviceCount.setOnClickListener(v -> showDeviceStatusSummary());
 
         // Volume adjustment icon
         binding.btnVolume.setOnClickListener(v -> {
@@ -166,8 +178,7 @@ public class SignalInspectActivity extends AppCompatActivity {
             android.widget.PopupMenu popupMenu = new android.widget.PopupMenu(this, v);
             popupMenu.getMenu().add(0, 1, 0, "蓝牙巡检").setChecked(scanType == ScanType.BLUETOOTH_ONLY);
             popupMenu.getMenu().add(0, 2, 0, "WiFi巡检").setChecked(scanType == ScanType.WIFI_ONLY);
-            popupMenu.getMenu().add(0, 3, 0, "蜂窝巡检").setChecked(scanType == ScanType.CELLULAR_ONLY);
-            popupMenu.getMenu().add(0, 4, 0, "全部扫描").setChecked(scanType == ScanType.ALL);
+            popupMenu.getMenu().add(0, 3, 0, "全部扫描").setChecked(scanType == ScanType.ALL);
             popupMenu.getMenu().setGroupCheckable(0, true, true);
             popupMenu.setOnMenuItemClickListener(item -> {
                 if (isScanning) {
@@ -182,9 +193,6 @@ public class SignalInspectActivity extends AppCompatActivity {
                         scanType = ScanType.WIFI_ONLY;
                         break;
                     case 3:
-                        scanType = ScanType.CELLULAR_ONLY;
-                        break;
-                    case 4:
                         scanType = ScanType.ALL;
                         break;
                 }
@@ -370,6 +378,53 @@ public class SignalInspectActivity extends AppCompatActivity {
         });
     }
 
+    private java.util.List<SignalDevice> getSnapshotDevicesToSave() {
+        java.util.Map<String, SignalDevice> deviceMap = new java.util.LinkedHashMap<>();
+        java.util.function.Consumer<SignalDevice> addDevice = d -> {
+            if (d == null) return;
+            String mac = d.getMacAddress() != null ? d.getMacAddress().trim() : "";
+            String key = !mac.isEmpty() ? mac : ("DEV_" + d.getDeviceName() + "_" + d.hashCode());
+            if (!deviceMap.containsKey(key)) {
+                deviceMap.put(key, d);
+            }
+        };
+
+        synchronized (this) {
+            if (latestVisibleDevices != null) {
+                for (SignalDevice d : latestVisibleDevices) {
+                    addDevice.accept(d);
+                }
+            }
+            if (currentDevices != null) {
+                for (SignalDevice d : currentDevices) {
+                    addDevice.accept(d);
+                }
+            }
+            if (pendingVisibleDevices != null) {
+                for (SignalDevice d : pendingVisibleDevices) {
+                    addDevice.accept(d);
+                }
+            }
+        }
+
+        if (adapter != null && adapter.getCurrentList() != null) {
+            for (SignalDevice d : adapter.getCurrentList()) {
+                addDevice.accept(d);
+            }
+        }
+
+        if (deviceMap.isEmpty()) {
+            java.util.List<SignalDevice> liveDevices = viewModel.getDevices().getValue();
+            if (liveDevices != null) {
+                for (SignalDevice d : liveDevices) {
+                    addDevice.accept(d);
+                }
+            }
+        }
+
+        return new java.util.ArrayList<>(deviceMap.values());
+    }
+
     private void requestStartNewScan() {
         if (hasUnsavedScanResults()) {
             showStartNewScanConfirmDialog();
@@ -379,7 +434,7 @@ public class SignalInspectActivity extends AppCompatActivity {
     }
 
     private boolean hasUnsavedScanResults() {
-        return currentDevices != null && !currentDevices.isEmpty();
+        return !getSnapshotDevicesToSave().isEmpty();
     }
 
     private void showStartNewScanConfirmDialog() {
@@ -415,9 +470,8 @@ public class SignalInspectActivity extends AppCompatActivity {
         Button btnDiscard = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_save_prompt_discard);
         Button btnSave = dialogView.findViewById(org.zacsn.signal_dectect.R.id.btn_save_prompt_save);
 
-        tvTitle.setText(title);
-        tvSubtitle.setText(subtitle);
-        tvCount.setText(currentDevices.size() + " 个");
+        int count = getSnapshotDevicesToSave().size();
+        tvCount.setText(count + " 个");
         tvMessage.setText(message);
         btnDiscard.setText(discardText);
         btnSave.setText(saveText);
@@ -500,12 +554,11 @@ public class SignalInspectActivity extends AppCompatActivity {
         });
         
         viewModel.getDevices().observe(this, devices -> {
-            // Store current devices for saving
-            currentDevices = new java.util.ArrayList<>(devices);
-            latestVisibleDevices = new java.util.ArrayList<>(devices);
-            java.util.List<SignalDevice> sortedDevices = refreshDeviceList();
-
-            checkConfiguredAlerts(sortedDevices);
+            pendingVisibleDevices = devices != null
+                    ? new java.util.ArrayList<>(devices)
+                    : new java.util.ArrayList<>();
+            handler.removeCallbacks(applyPendingDeviceListRunnable);
+            handler.postDelayed(applyPendingDeviceListRunnable, DEVICE_LIST_UPDATE_DEBOUNCE_MS);
         });
         
         viewModel.getScanDuration().observe(this, duration -> {
@@ -596,6 +649,12 @@ public class SignalInspectActivity extends AppCompatActivity {
     private java.util.List<SignalDevice> refreshDeviceList() {
         java.util.List<SignalDevice> sortedDevices = new java.util.ArrayList<>(latestVisibleDevices);
         sortedDevices.sort((d1, d2) -> {
+            int presencePriority1 = getPresencePriority(d1);
+            int presencePriority2 = getPresencePriority(d2);
+            if (presencePriority1 != presencePriority2) {
+                return Integer.compare(presencePriority1, presencePriority2);
+            }
+
             int targetPriority1 = highlightedTargetDevices.contains(AlertRuleMatcher.normalizeMac(d1.getMacAddress())) ? 0 : 1;
             int targetPriority2 = highlightedTargetDevices.contains(AlertRuleMatcher.normalizeMac(d2.getMacAddress())) ? 0 : 1;
             if (targetPriority1 != targetPriority2) {
@@ -608,13 +667,60 @@ public class SignalInspectActivity extends AppCompatActivity {
                 return Integer.compare(typePriority1, typePriority2);
             }
 
-            return Long.compare(d2.getLastSeen(), d1.getLastSeen());
+            int firstSeenOrder = Long.compare(d1.getFirstSeen(), d2.getFirstSeen());
+            if (firstSeenOrder != 0) {
+                return firstSeenOrder;
+            }
+            return AlertRuleMatcher.normalizeMac(d1.getMacAddress())
+                    .compareTo(AlertRuleMatcher.normalizeMac(d2.getMacAddress()));
         });
 
         adapter.submitList(sortedDevices);
-        binding.tvDeviceCount.setText("设备数: " + sortedDevices.size());
-        binding.tvLargeDeviceCount.setText(String.valueOf(sortedDevices.size()));
+        int staleCount = 0;
+        int missingCount = 0;
+        for (SignalDevice device : sortedDevices) {
+            if (device.isStale()) {
+                staleCount++;
+            } else if (device.isMissing()) {
+                missingCount++;
+            }
+        }
+        int activeCount = sortedDevices.size() - staleCount - missingCount;
+        activeDeviceCount = activeCount;
+        missingDeviceCount = missingCount;
+        staleDeviceCount = staleCount;
+        StringBuilder countText = new StringBuilder("在线: ").append(activeCount);
+        if (missingCount > 0) countText.append(" · 暂失: ").append(missingCount);
+        if (staleCount > 0) countText.append(" · 过时: ").append(staleCount);
+        binding.tvDeviceCount.setText(countText.toString());
+        binding.tvDeviceCount.setContentDescription(
+                "设备状态统计，在线 " + activeCount
+                        + "，暂失 " + missingCount
+                        + "，过时 " + staleCount
+                        + "，点击查看完整统计"
+        );
+        binding.tvLargeDeviceCount.setText(String.valueOf(activeCount));
         return sortedDevices;
+    }
+
+    private void showDeviceStatusSummary() {
+        int totalCount = activeDeviceCount + missingDeviceCount + staleDeviceCount;
+        String message = "在线：" + activeDeviceCount + " 台"
+                + "\n暂失：" + missingDeviceCount + " 台"
+                + "\n过时：" + staleDeviceCount + " 台"
+                + "\n\n总计：" + totalCount + " 台";
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("设备状态统计")
+                .setMessage(message)
+                .setPositiveButton("关闭", null)
+                .show();
+    }
+
+    private int getPresencePriority(SignalDevice device) {
+        if (device.isStale()) return 2;
+        if (device.isMissing()) return 1;
+        return 0;
     }
 
     private void checkConfiguredAlerts(java.util.List<SignalDevice> devices) {
@@ -623,6 +729,9 @@ public class SignalInspectActivity extends AppCompatActivity {
         }
 
         for (SignalDevice device : devices) {
+            if (device.isStale()) {
+                continue;
+            }
             AlertMatch match = AlertRuleMatcher.match(device, alertConfig);
             if (match == null) {
                 continue;
@@ -665,10 +774,10 @@ public class SignalInspectActivity extends AppCompatActivity {
                 + "信号强度: " + device.getSignalStrength() + " dBm\n"
                 + "确认厂商: " + safeManufacturer(device.getManufacturer(), "未确认") + "\n"
                 + "候选线索: " + safeManufacturer(device.getCandidateManufacturer(), "无") + "\n"
-                + "判定等级: " + device.getManufacturerVerdict().name() + "\n"
-                + "线索来源: " + safeText(device.getManufacturerSource()) + "\n"
+                + "判定等级: " + org.zacsn.signal_dectect.util.DisplayMapper.verdictLabel(device.getManufacturerVerdict()) + "\n"
+                + "线索来源: " + org.zacsn.signal_dectect.util.DisplayMapper.manufacturerSource(device.getManufacturerSource()) + "\n"
                 + "证据摘要: " + safeText(device.getManufacturerEvidence()) + "\n"
-                + "设备类型: " + device.getDeviceType().name();
+                + "设备类型: " + org.zacsn.signal_dectect.util.DisplayMapper.deviceType(device.getDeviceType());
         tvMessage.setText(info);
 
         btnNegative.setText("确认");
@@ -775,8 +884,7 @@ public class SignalInspectActivity extends AppCompatActivity {
     
     @Override
     public void onBackPressed() {
-        // If there are scanned devices, ask if user wants to save
-        if (currentDevices != null && !currentDevices.isEmpty()) {
+        if (hasUnsavedScanResults()) {
             showSaveRecordDialog();
         } else {
             super.onBackPressed();
@@ -862,19 +970,25 @@ public class SignalInspectActivity extends AppCompatActivity {
         }
 
         isSavingRecord = true;
+
+        java.util.List<SignalDevice> devicesSnapshot = getSnapshotDevicesToSave();
+
         if (isScanning) {
             soundEffectManager.stopAllSounds();
             viewModel.stopScan();
         }
 
         long timestamp = System.currentTimeMillis();
-        int scanTypeInt = getScanTypeInt();
-        long durationSeconds = scanStartTime > 0 ? (timestamp - scanStartTime) / 1000 : 0;
-        java.util.List<SignalDevice> devicesSnapshot = new java.util.ArrayList<>(currentDevices);
+        final int scanTypeInt = getScanTypeInt();
+        long calculatedDuration = scanStartTime > 0 ? (timestamp - scanStartTime) / 1000 : 0;
+        if (calculatedDuration <= 0 && viewModel.getScanDuration().getValue() != null) {
+            calculatedDuration = viewModel.getScanDuration().getValue();
+        }
+        final long durationSeconds = calculatedDuration;
 
         new Thread(() -> {
             try {
-                Gson gson = new Gson();
+                Gson gson = org.zacsn.signal_dectect.util.GsonFactory.getGson();
                 String devicesJson = gson.toJson(devicesSnapshot);
 
                 ScanRecordEntity record = new ScanRecordEntity(
@@ -895,13 +1009,16 @@ public class SignalInspectActivity extends AppCompatActivity {
                 runOnUiThreadIfAlive(() -> {
                     isSavingRecord = false;
                     Toast.makeText(this, "记录已保存", Toast.LENGTH_SHORT).show();
-                    currentDevices = new java.util.ArrayList<>();
-                    latestVisibleDevices = new java.util.ArrayList<>();
+                    synchronized (this) {
+                        currentDevices = new java.util.ArrayList<>();
+                        latestVisibleDevices = new java.util.ArrayList<>();
+                        pendingVisibleDevices = new java.util.ArrayList<>();
+                    }
                     if (afterSave != null) {
                         afterSave.run();
                     }
                 });
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 Log.e("SignalInspectActivity", "Failed to save scan record", e);
                 runOnUiThreadIfAlive(() -> {
                     isSavingRecord = false;
@@ -912,8 +1029,11 @@ public class SignalInspectActivity extends AppCompatActivity {
     }
 
     private void finishAfterDiscardingScanResults() {
-        currentDevices = new java.util.ArrayList<>();
-        latestVisibleDevices = new java.util.ArrayList<>();
+        synchronized (this) {
+            currentDevices = new java.util.ArrayList<>();
+            latestVisibleDevices = new java.util.ArrayList<>();
+            pendingVisibleDevices = new java.util.ArrayList<>();
+        }
         if (isScanning) {
             viewModel.stopScan();
             soundEffectManager.stopAllSounds();
@@ -930,8 +1050,11 @@ public class SignalInspectActivity extends AppCompatActivity {
     }
 
     private void startNewScanAfterDiscardingScanResults() {
-        currentDevices = new java.util.ArrayList<>();
-        latestVisibleDevices = new java.util.ArrayList<>();
+        synchronized (this) {
+            currentDevices = new java.util.ArrayList<>();
+            latestVisibleDevices = new java.util.ArrayList<>();
+            pendingVisibleDevices = new java.util.ArrayList<>();
+        }
         startNewScan();
     }
 
@@ -954,14 +1077,19 @@ public class SignalInspectActivity extends AppCompatActivity {
      * Get scan type name for display.
      */
     private String getScanTypeName() {
-        if (scanType == ScanType.BLUETOOTH_ONLY) {
+        if (scanType == null) {
+            return "信号巡检";
+        }
+        if (scanType.isBluetooth() && !scanType.isWifi() && !scanType.isCellular()) {
             return "蓝牙巡检";
-        } else if (scanType == ScanType.WIFI_ONLY) {
+        } else if (!scanType.isBluetooth() && scanType.isWifi() && !scanType.isCellular()) {
             return "WiFi巡检";
-        } else if (scanType == ScanType.CELLULAR_ONLY) {
+        } else if (!scanType.isBluetooth() && !scanType.isWifi() && scanType.isCellular()) {
             return "蜂窝巡检";
+        } else if (scanType.isBluetooth() && scanType.isWifi() && !scanType.isCellular()) {
+            return "蓝牙+WiFi巡检";
         } else {
-            return "扫描";
+            return "全部扫描";
         }
     }
     
@@ -969,17 +1097,7 @@ public class SignalInspectActivity extends AppCompatActivity {
      * Get scan type as integer for database.
      */
     private int getScanTypeInt() {
-        if (scanType == ScanType.BLUETOOTH_ONLY) {
-            return 1;  // BT
-        } else if (scanType == ScanType.WIFI_ONLY) {
-            return 2;  // WiFi
-        } else if (scanType == ScanType.CELLULAR_ONLY) {
-            return 4;  // Cellular
-        } else if (scanType == ScanType.ALL) {
-            return 7;  // BT + WiFi + Cellular (1+2+4)
-        } else {
-            return 0;
-        }
+        return scanType != null ? scanType.toInt() : ScanType.ALL.toInt();
     }
     
     @Override
@@ -995,6 +1113,9 @@ public class SignalInspectActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (handler != null) {
+            handler.removeCallbacks(applyPendingDeviceListRunnable);
+        }
         // Ensure scanning is stopped when activity is destroyed
         if (isScanning) {
             viewModel.stopScan();

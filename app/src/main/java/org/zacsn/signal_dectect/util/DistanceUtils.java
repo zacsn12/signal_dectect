@@ -30,7 +30,7 @@ public final class DistanceUtils {
         }
 
         if (distanceMeters < 1.0) {
-            return String.format(Locale.getDefault(), "%.1f m", distanceMeters);
+            return String.format(Locale.getDefault(), "%.2f m", distanceMeters);
         }
         return String.format(Locale.getDefault(), "%.1f m", distanceMeters);
     }

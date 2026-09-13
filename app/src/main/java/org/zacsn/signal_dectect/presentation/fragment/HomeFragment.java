@@ -13,6 +13,7 @@ import org.zacsn.signal_dectect.data.database.BlacklistItemEntity;
 import org.zacsn.signal_dectect.data.repository.DeviceRepository;
 import org.zacsn.signal_dectect.data.repository.ScanRepository;
 import org.zacsn.signal_dectect.databinding.FragmentHomeBinding;
+import org.zacsn.signal_dectect.presentation.activity.FakeBaseStationActivity;
 import org.zacsn.signal_dectect.presentation.activity.LanDeviceScanActivity;
 import org.zacsn.signal_dectect.presentation.activity.SignalInspectActivity;
 import javax.inject.Inject;
@@ -65,10 +66,9 @@ public class HomeFragment extends Fragment {
             startActivity(intent);
         });
 
-        // Cellular Scan
+        // Fake Base Station Scan - Use dedicated Fake Base Station Scan activity
         binding.cardCellularScan.setOnClickListener(v -> {
-            Intent intent = new Intent(requireContext(), SignalInspectActivity.class);
-            intent.putExtra("SCAN_TYPE", "CELLULAR");
+            Intent intent = new Intent(requireContext(), FakeBaseStationActivity.class);
             startActivity(intent);
         });
     }
@@ -153,7 +153,7 @@ public class HomeFragment extends Fragment {
             }
         });
     }
-    
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();

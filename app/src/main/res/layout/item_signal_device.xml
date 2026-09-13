@@ -16,6 +16,14 @@
         android:layout_height="match_parent"
         android:background="@drawable/bg_card_rounded" />
 
+    <View
+        android:id="@+id/view_stale_indicator"
+        android:layout_width="5dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#475569"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -70,6 +78,34 @@
                     android:textSize="16sp"
                     android:fontFamily="sans-serif-black"
                     android:textColor="#0F172A" />
+
+                <TextView
+                    android:id="@+id/tv_missing_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_pill_orange"
+                    android:fontFamily="sans-serif-bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="信号暂失"
+                    android:textColor="@color/warning"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_stale_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_pill_gray"
+                    android:fontFamily="sans-serif-bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="过时"
+                    android:textColor="#334155"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/tv_target_badge"

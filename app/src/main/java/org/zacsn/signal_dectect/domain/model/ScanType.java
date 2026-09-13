@@ -41,7 +41,7 @@ public class ScanType {
     }
 
     // Predefined scan types
-    public static final ScanType ALL = new ScanType(true, true, true);
+    public static final ScanType ALL = new ScanType(true, true, false);
     public static final ScanType BLUETOOTH_ONLY = new ScanType(true, false, false);
     public static final ScanType WIFI_ONLY = new ScanType(false, true, false);
     public static final ScanType CELLULAR_ONLY = new ScanType(false, false, true);

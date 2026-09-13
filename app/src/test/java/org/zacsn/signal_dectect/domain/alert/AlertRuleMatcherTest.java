@@ -3,6 +3,7 @@ package org.zacsn.signal_dectect.domain.alert;
 import org.junit.Test;
 import org.zacsn.signal_dectect.domain.model.DeviceType;
 import org.zacsn.signal_dectect.domain.model.ManufacturerVerdict;
+import org.zacsn.signal_dectect.domain.model.PresenceState;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
 
 import java.util.Arrays;
@@ -119,7 +120,9 @@ public class AlertRuleMatcherTest {
                 now,
                 false,
                 false,
-                false
+                false,
+                PresenceState.ACTIVE,
+                0L
         );
     }
 

@@ -10,6 +10,7 @@ import org.zacsn.signal_dectect.data.database.ScanRecordEntity;
 import org.zacsn.signal_dectect.databinding.ActivityScanRecordDetailBinding;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
 import org.zacsn.signal_dectect.presentation.adapter.SignalDeviceAdapter;
+import org.zacsn.signal_dectect.util.GsonFactory;
 import dagger.hilt.android.AndroidEntryPoint;
 import javax.inject.Inject;
 import java.lang.reflect.Type;
@@ -78,7 +79,6 @@ public class ScanRecordDetailActivity extends AppCompatActivity {
         binding.recyclerViewDevices.setAdapter(adapter);
     }
 
-    
     private void loadRecordDetails(long recordId) {
         new Thread(() -> {
             try {
@@ -93,41 +93,38 @@ public class ScanRecordDetailActivity extends AppCompatActivity {
                 android.util.Log.d("ScanRecordDetail", "Devices JSON length: " + 
                         (record.getDevicesJson() != null ? record.getDevicesJson().length() : 0));
                 
-                // Parse devices from JSON
-                List<SignalDevice> devices = new ArrayList<>();
-                if (record.getDevicesJson() != null && !record.getDevicesJson().isEmpty()) {
-                    try {
-                        Gson gson = new Gson();
-                        Type listType = new TypeToken<List<SignalDevice>>() {}.getType();
-                        devices = gson.fromJson(record.getDevicesJson(), listType);
-                        if (devices == null) {
-                            devices = new ArrayList<>();
-                        }
-                        android.util.Log.d("ScanRecordDetail", "Parsed " + devices.size() + " devices");
-                    } catch (Exception e) {
-                        android.util.Log.e("ScanRecordDetail", "Error parsing devices JSON", e);
-                        devices = new ArrayList<>();
-                    }
-                }
+                List<SignalDevice> devices = org.zacsn.signal_dectect.domain.model.EntityMappers.parseDevicesJson(
+                        record.getDevicesJson(),
+                        record.getTimestamp()
+                );
                 
                 final List<SignalDevice> finalDevices = devices;
+                final int displayCount = Math.max(record.getDeviceCount(), finalDevices.size());
                 
                 runOnUiThread(() -> {
                     try {
-                        // Display record info
+                        if (record.getName() != null && !record.getName().trim().isEmpty()) {
+                            binding.toolbar.setTitle(record.getName());
+                        }
+                        
                         String scanTypeName = getScanTypeName(record.getScanType());
                         binding.tvScanType.setText("扫描类型: " + scanTypeName);
                         
                         String timeStr = dateFormat.format(new Date(record.getTimestamp()));
                         binding.tvScanTime.setText("扫描时间: " + timeStr);
                         
-                        // Duration is already in seconds (divided by 1000 when saved)
                         binding.tvDuration.setText("扫描时长: " + record.getDuration() + " 秒");
+                        binding.tvDeviceCount.setText("设备总数: " + displayCount + " 台");
                         
-                        binding.tvDeviceCount.setText("设备总数: " + record.getDeviceCount());
+                        if (finalDevices.isEmpty()) {
+                            binding.tvEmptyDevices.setVisibility(android.view.View.VISIBLE);
+                            binding.recyclerViewDevices.setVisibility(android.view.View.GONE);
+                        } else {
+                            binding.tvEmptyDevices.setVisibility(android.view.View.GONE);
+                            binding.recyclerViewDevices.setVisibility(android.view.View.VISIBLE);
+                        }
                         
-                        // Display devices
-                        adapter.submitList(finalDevices);
+                        adapter.submitList(new ArrayList<>(finalDevices));
                     } catch (Exception e) {
                         android.util.Log.e("ScanRecordDetail", "Error updating UI", e);
                         android.widget.Toast.makeText(ScanRecordDetailActivity.this, 

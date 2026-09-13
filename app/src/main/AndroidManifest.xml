@@ -28,6 +28,8 @@
     <!-- Service permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- 持续蓝牙扫描在 Android 14 上属于 connectedDevice 类型，缺声明会导致 startForeground 失败 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"
         android:minSdkVersion="33" />
 
@@ -69,6 +71,12 @@
         <!-- LAN Device Scan Activity -->
         <activity
             android:name=".presentation.activity.LanDeviceScanActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- Fake Base Station Scan Activity -->
+        <activity
+            android:name=".presentation.activity.FakeBaseStationActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
@@ -124,7 +132,7 @@
             android:name=".service.SignalScanService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|connectedDevice" />
     </application>
 
 </manifest>

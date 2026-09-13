@@ -29,12 +29,14 @@
     public <init>(...);
     public *;
 }
--keepclassmembers class org.zacsn.signal_dectect.domain.model.SignalDevice {
+-keep class org.zacsn.signal_dectect.domain.model.** { *; }
+-keepclassmembers class org.zacsn.signal_dectect.domain.model.** {
     <fields>;
     public <init>(...);
     public *;
 }
 -keepclassmembers enum org.zacsn.signal_dectect.domain.model.** {
+    <fields>;
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }

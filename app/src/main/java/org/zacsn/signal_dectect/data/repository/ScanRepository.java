@@ -36,6 +36,9 @@ public interface ScanRepository {
      * Get current scanning devices.
      */
     List<SignalDevice> getCurrentDevices();
+
+    /** All devices discovered in the current session, including archived stale entries. */
+    List<SignalDevice> getSessionDevices();
     
     interface ScanCallback {
         void onDeviceFound(SignalDevice device);

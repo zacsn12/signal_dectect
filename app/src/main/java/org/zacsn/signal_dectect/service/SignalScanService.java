@@ -8,23 +8,24 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Build;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import androidx.core.app.NotificationCompat;
 
 import org.zacsn.signal_dectect.MainActivity;
-import org.zacsn.signal_dectect.R;
+import org.zacsn.signal_dectect.data.scan.ScanEngine;
+import org.zacsn.signal_dectect.data.scan.ScanObserver;
+import org.zacsn.signal_dectect.data.scan.ScanSource;
+import org.zacsn.signal_dectect.data.scan.BluetoothScanSource;
+import org.zacsn.signal_dectect.data.scan.WiFiScanSource;
+import org.zacsn.signal_dectect.data.scan.CellularScanSource;
 import org.zacsn.signal_dectect.data.scanner.BluetoothScanController;
 import org.zacsn.signal_dectect.data.scanner.CellularScanController;
 import org.zacsn.signal_dectect.data.scanner.WiFiScanController;
-import org.zacsn.signal_dectect.domain.model.DeviceType;
 import org.zacsn.signal_dectect.domain.model.ScanType;
 import org.zacsn.signal_dectect.domain.model.SignalDevice;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.inject.Inject;
 
@@ -32,168 +33,140 @@ import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * Foreground service for continuous signal scanning.
+ *
+ * 设备聚合、去重、在线状态与过期清理已全部下沉到单线程的 {@link ScanEngine}。
+ * 本 Service 只负责：前台通知与生命周期、把三路采集器的观测投递给引擎、
+ * 把引擎的列表更新回调转发给上层（Repository / ViewModel）。
  */
 @AndroidEntryPoint
 public class SignalScanService extends Service {
-    
+
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL_ID = "signal_scan_channel";
-    private static final long STALE_PRUNE_INTERVAL_MS = 1_000L;
-    private static final long BLE_STALE_TIMEOUT_MS = 20_000L;
-    private static final long CLASSIC_BT_STALE_TIMEOUT_MS = 18_000L;
-    private static final long WIFI_STALE_TIMEOUT_MS = 25_000L;
-    private static final long CELLULAR_STALE_TIMEOUT_MS = 30_000L;
-    
+
     @Inject
     BluetoothScanController bluetoothController;
-    
+
     @Inject
     WiFiScanController wifiController;
-    
+
     @Inject
     CellularScanController cellularController;
-    
+
     private final IBinder binder = new LocalBinder();
-    private final List<SignalDevice> allDevices = new CopyOnWriteArrayList<>();
-    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ScanEngine engine = new ScanEngine();
+    private List<ScanSource> scanSources;
     private ScanType currentScanType;
     private ServiceCallback callback;
     private boolean isScanning = false;
-    private final Runnable staleDevicePruneRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (!isScanning) {
-                return;
-            }
+    /** 通知里只显示设备数量，数量没变就没必要重发（系统对高频通知会限流丢帧）。 */
+    private int lastNotifiedCount = -1;
 
-            boolean changed = purgeStaleDevices(System.currentTimeMillis());
-            if (changed && callback != null) {
-                callback.onDeviceListUpdated(new ArrayList<>(allDevices));
-            }
-            updateNotification(allDevices.size());
-            handler.postDelayed(this, STALE_PRUNE_INTERVAL_MS);
-        }
-    };
-    
     public interface ServiceCallback {
         void onDeviceFound(SignalDevice device);
         void onDeviceListUpdated(List<SignalDevice> devices);
         void onScanError(String error);
     }
-    
+
     public class LocalBinder extends Binder {
         public SignalScanService getService() {
             return SignalScanService.this;
         }
     }
 
-    
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
         setupScanListeners();
+        // 引擎在其后台线程上发出列表快照；此处只做通知刷新与向上转发。
+        engine.setListener(devices -> {
+            updateNotification(devices.size());
+            if (callback != null) {
+                callback.onDeviceListUpdated(new ArrayList<>(devices));
+            }
+        });
     }
-    
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startForeground(NOTIFICATION_ID, createNotification(0));
+        lastNotifiedCount = 0;
         return START_STICKY;
     }
-    
+
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
     }
-    
+
     public void setCallback(ServiceCallback callback) {
         this.callback = callback;
     }
-    
+
     /**
      * Start scanning with specified scan type.
      */
     public void startScan(ScanType scanType) {
         this.currentScanType = scanType;
         this.isScanning = true;
-        
-        // Stop all scanners first
-        bluetoothController.stopScan();
-        wifiController.stopScan();
-        cellularController.stopScan();
-        handler.removeCallbacks(staleDevicePruneRunnable);
-        
-        // Clear device list
-        allDevices.clear();
+
+        // Stop all sources first
+        for (ScanSource source : scanSources) {
+            source.stop();
+        }
+
+        // 重置聚合状态；引擎按扫描类型过滤观测。
+        engine.start(scanType);
         if (callback != null) {
-            callback.onDeviceListUpdated(new ArrayList<>(allDevices));
+            callback.onDeviceListUpdated(new ArrayList<>());
         }
-        
-        // Start only the requested scanners
-        if (scanType.isBluetooth()) {
-            bluetoothController.startScan();
+
+        // Start only the sources that apply to the requested scan type
+        for (ScanSource source : scanSources) {
+            if (source.appliesTo(scanType)) {
+                source.start();
+            }
         }
-        if (scanType.isWifi()) {
-            wifiController.startScan();
-        }
-        if (scanType.isCellular()) {
-            cellularController.startScan();
-        }
-        handler.postDelayed(staleDevicePruneRunnable, STALE_PRUNE_INTERVAL_MS);
     }
-    
+
     /**
      * Stop all scanning.
      */
     public void stopScan() {
         isScanning = false;
-        handler.removeCallbacks(staleDevicePruneRunnable);
-        bluetoothController.stopScan();
-        wifiController.stopScan();
-        cellularController.stopScan();
-    }
-    
-    public List<SignalDevice> getAllDevices() {
-        return new ArrayList<>(allDevices);
+        engine.stop();
+        for (ScanSource source : scanSources) {
+            source.stop();
+        }
     }
 
-    
+    public List<SignalDevice> getAllDevices() {
+        return new ArrayList<>(engine.allDevices());
+    }
+
+    public List<SignalDevice> getSessionDevices() {
+        return new ArrayList<>(engine.sessionDevices());
+    }
+
     private void setupScanListeners() {
-        bluetoothController.setScanListener(new BluetoothScanController.ScanListener() {
-            @Override
-            public void onDeviceFound(SignalDevice device) {
-                handleDeviceFound(device);
-            }
-            
-            @Override
-            public void onScanError(String error) {
-                handleScanError("蓝牙巡检: " + error);
-            }
-        });
-        
-        wifiController.setScanListener(new WiFiScanController.ScanListener() {
-            @Override
-            public void onDeviceFound(SignalDevice device) {
-                handleDeviceFound(device);
-            }
-            
-            @Override
-            public void onScanError(String error) {
-                handleScanError("WiFi巡检: " + error);
-            }
-        });
-        
-        cellularController.setScanListener(new CellularScanController.ScanListener() {
-            @Override
-            public void onSignalUpdate(SignalDevice device) {
-                handleDeviceFound(device);
-            }
-            
-            @Override
-            public void onScanError(String error) {
-                handleScanError("蜂窝巡检: " + error);
-            }
-        });
+        scanSources = java.util.Arrays.asList(
+            new BluetoothScanSource(bluetoothController),
+            new WiFiScanSource(wifiController)
+        );
+        for (ScanSource source : scanSources) {
+            source.setObserver(new ScanObserver() {
+                @Override
+                public void onDevice(SignalDevice device) {
+                    handleDeviceFound(device);
+                }
+
+                @Override
+                public void onError(String message) {
+                    handleScanError(source.label() + ": " + message);
+                }
+            });
+        }
     }
 
     private void handleScanError(String error) {
@@ -201,99 +174,14 @@ public class SignalScanService extends Service {
             callback.onScanError(error);
         }
     }
-    
+
     void handleDeviceFound(SignalDevice device) {
-        // Filter device based on current scan type
-        if (currentScanType != null && !isDeviceMatchingScanType(device)) {
-            return; // Skip devices that don't match current scan type
-        }
-        
-        // Update or add device
-        boolean found = false;
-        for (int i = 0; i < allDevices.size(); i++) {
-            if (allDevices.get(i).getMacAddress().equals(device.getMacAddress())) {
-                allDevices.set(i, device);
-                found = true;
-                break;
-            }
-        }
-        
-        if (!found) {
-            allDevices.add(device);
-        }
-        
-        updateNotification(allDevices.size());
-        
+        engine.submit(device);
         if (callback != null) {
             callback.onDeviceFound(device);
-            callback.onDeviceListUpdated(new ArrayList<>(allDevices));
         }
     }
 
-    boolean purgeStaleDevices(long now) {
-        List<SignalDevice> staleDevices = new ArrayList<>();
-        for (SignalDevice device : allDevices) {
-            long timeoutMs = getStaleTimeoutMs(device);
-            if (now - device.getLastSeen() > timeoutMs) {
-                staleDevices.add(device);
-            }
-        }
-
-        if (staleDevices.isEmpty()) {
-            return false;
-        }
-
-        allDevices.removeAll(staleDevices);
-        return true;
-    }
-
-    private long getStaleTimeoutMs(SignalDevice device) {
-        if (device == null || device.getDeviceType() == null) {
-            return BLE_STALE_TIMEOUT_MS;
-        }
-
-        switch (device.getDeviceType()) {
-            case BLUETOOTH_LE:
-                return BLE_STALE_TIMEOUT_MS;
-            case BLUETOOTH_CLASSIC:
-                return CLASSIC_BT_STALE_TIMEOUT_MS;
-            case WIFI:
-                return WIFI_STALE_TIMEOUT_MS;
-            case CELLULAR:
-                return CELLULAR_STALE_TIMEOUT_MS;
-            default:
-                return BLE_STALE_TIMEOUT_MS;
-        }
-    }
-    
-    /**
-     * Check if device matches the current scan type.
-     */
-    private boolean isDeviceMatchingScanType(SignalDevice device) {
-        if (currentScanType == null) {
-            return true; // No filter, accept all
-        }
-        
-        DeviceType deviceType = device.getDeviceType();
-        
-        // Check if device type matches scan type
-        if (currentScanType.isBluetooth() && 
-            (deviceType == DeviceType.BLUETOOTH_LE || deviceType == DeviceType.BLUETOOTH_CLASSIC)) {
-            return true;
-        }
-        
-        if (currentScanType.isWifi() && deviceType == DeviceType.WIFI) {
-            return true;
-        }
-        
-        if (currentScanType.isCellular() && deviceType == DeviceType.CELLULAR) {
-            return true;
-        }
-        
-        return false;
-    }
-
-    
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -301,26 +189,26 @@ public class SignalScanService extends Service {
                 "信号扫描服务",
                 NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("持续扫描蓝牙、WiFi和蜂窝信号");
-            
+            channel.setDescription("持续扫描蓝牙和WiFi信号");
+
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
             }
         }
     }
-    
+
     private Notification createNotification(int deviceCount) {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this, 0, notificationIntent,
             PendingIntent.FLAG_IMMUTABLE
         );
-        
-        String contentText = deviceCount > 0 
-            ? "已发现 " + deviceCount + " 个设备" 
+
+        String contentText = deviceCount > 0
+            ? "已发现 " + deviceCount + " 个设备"
             : "正在扫描...";
-        
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("信号检测运行中")
             .setContentText(contentText)
@@ -329,17 +217,22 @@ public class SignalScanService extends Service {
             .setOngoing(true)
             .build();
     }
-    
+
     private void updateNotification(int deviceCount) {
+        if (deviceCount == lastNotifiedCount) {
+            return;
+        }
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
             manager.notify(NOTIFICATION_ID, createNotification(deviceCount));
+            lastNotifiedCount = deviceCount;
         }
     }
-    
+
     @Override
     public void onDestroy() {
         stopScan();
+        engine.shutdown();
         super.onDestroy();
     }
 }

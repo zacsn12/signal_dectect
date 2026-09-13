@@ -95,12 +95,37 @@ public class WiFiScanController {
             }
             return;
         }
+
+        if (!isLocationEnabled()) {
+            Log.w(TAG, "Location service (GPS) is disabled. WiFi scanning requires Location service on Android 10+.");
+            if (scanListener != null) {
+                scanListener.onScanError("系统定位服务（GPS）未开启，Android 10+ 需开启定位服务才能扫描 WiFi");
+            }
+        }
         
         isScanning = true;
         deviceMap.clear();
         
         setupScanReceiver();
         startPeriodicScan();
+    }
+
+    private boolean isLocationEnabled() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            android.location.LocationManager locationManager =
+                    (android.location.LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            return locationManager != null && locationManager.isLocationEnabled();
+        } else {
+            try {
+                int locationMode = android.provider.Settings.Secure.getInt(
+                        context.getContentResolver(),
+                        android.provider.Settings.Secure.LOCATION_MODE
+                );
+                return locationMode != android.provider.Settings.Secure.LOCATION_MODE_OFF;
+            } catch (android.provider.Settings.SettingNotFoundException e) {
+                return false;
+            }
+        }
     }
 
     
@@ -124,7 +149,21 @@ public class WiFiScanController {
             return;
         }
         
-        List<ScanResult> results = wifiManager.getScanResults();
+        List<ScanResult> results = null;
+        try {
+            results = wifiManager.getScanResults();
+        } catch (SecurityException e) {
+            Log.e(TAG, "SecurityException while getting WiFi scan results: " + e.getMessage());
+            if (scanListener != null) {
+                scanListener.onScanError("获取WiFi扫描结果权限不足: " + e.getMessage());
+            }
+            return;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get WiFi scan results: " + e.getMessage());
+            return;
+        }
+
+        if (results == null) return;
         
         for (ScanResult result : results) {
             String bssid = result.BSSID;
@@ -227,7 +266,7 @@ public class WiFiScanController {
     public String getWifiBand(int frequency) {
         if (frequency >= 2400 && frequency <= 2500) {
             return "2.4G";
-        } else if (frequency >= 4900 && frequency <= 5900) {
+        } else if (frequency >= 4900 && frequency < 5925) {
             return "5G";
         } else if (frequency >= 5925 && frequency <= 7125) {
             return "6G";
@@ -351,10 +390,6 @@ public class WiFiScanController {
             return "Realme Chongqing Mobile";
         }
         return null;
-    }
-    
-    public ConcurrentHashMap<String, SignalDevice> getDeviceMap() {
-        return deviceMap;
     }
 
     private static final class ManufacturerEvidence {

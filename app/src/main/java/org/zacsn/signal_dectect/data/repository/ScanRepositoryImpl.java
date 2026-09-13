@@ -39,9 +39,19 @@ public class ScanRepositoryImpl implements ScanRepository {
     
     private SignalScanService scanService;
     private boolean serviceBound = false;
+    /**
+     * 已调用 bindService 且尚未 unbindService。
+     *
+     * 与 serviceBound 区分开：bindService 是异步的，连接回调到达前若再 bind 一次，
+     * 绑定计数就会加到 2，而 stopScan() 只 unbind 一次，多出来的那次永远泄漏。
+     * 服务进程崩溃时 onServiceDisconnected 会清掉 serviceBound，但绑定关系仍在，
+     * 此时也不能重复 bind，所以这个标志只由 startScan / stopScan 翻转。
+     */
+    private boolean bindRequested = false;
     private ScanCallback currentCallback;
     private long scanStartTime;
     private ScanType currentScanType;
+    private List<SignalDevice> lastSessionDevices = new ArrayList<>();
 
     
     private final ServiceConnection serviceConnection = new ServiceConnection() {
@@ -50,7 +60,7 @@ public class ScanRepositoryImpl implements ScanRepository {
             SignalScanService.LocalBinder binder = (SignalScanService.LocalBinder) service;
             scanService = binder.getService();
             serviceBound = true;
-            
+
             scanService.setCallback(new SignalScanService.ServiceCallback() {
                 @Override
                 public void onDeviceFound(SignalDevice device) {
@@ -61,6 +71,9 @@ public class ScanRepositoryImpl implements ScanRepository {
                 
                 @Override
                 public void onDeviceListUpdated(List<SignalDevice> devices) {
+                    if (devices != null) {
+                        lastSessionDevices = new ArrayList<>(devices);
+                    }
                     if (currentCallback != null) {
                         currentCallback.onDeviceListUpdated(devices);
                     }
@@ -81,6 +94,8 @@ public class ScanRepositoryImpl implements ScanRepository {
         
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            // 服务进程意外结束；绑定关系仍由系统保留，重连后会再次回调 onServiceConnected，
+            // 因此这里不动 bindRequested，避免误判成“未绑定”而重复 bind。
             serviceBound = false;
             scanService = null;
         }
@@ -102,12 +117,32 @@ public class ScanRepositoryImpl implements ScanRepository {
         
         Intent intent = new Intent(context, SignalScanService.class);
         ContextCompat.startForegroundService(context, intent);
-        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+
+        if (serviceBound && scanService != null) {
+            // 已连接：直接换一轮扫描，不再 bind（否则绑定计数只增不减）。
+            scanService.startScan(scanType);
+            return;
+        }
+        if (!bindRequested) {
+            context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+            bindRequested = true;
+        }
+        // 绑定中：currentScanType 已记录，onServiceConnected 会用它启动扫描。
     }
     
     @Override
     public ScanRecord stopScan() {
-        List<SignalDevice> devices = getCurrentDevices();
+        List<SignalDevice> devices;
+        if (serviceBound && scanService != null) {
+            devices = scanService.getSessionDevices();
+        } else if (!lastSessionDevices.isEmpty()) {
+            devices = new ArrayList<>(lastSessionDevices);
+        } else {
+            devices = getCurrentDevices();
+        }
+        if (devices != null && !devices.isEmpty()) {
+            lastSessionDevices = new ArrayList<>(devices);
+        }
         long duration = System.currentTimeMillis() - scanStartTime;
         
         ScanRecord record = new ScanRecord(
@@ -117,20 +152,26 @@ public class ScanRepositoryImpl implements ScanRepository {
             duration,
             null, // latitude
             null, // longitude
-            devices.size(),
-            devices
+            devices != null ? devices.size() : 0,
+            devices != null ? devices : new ArrayList<>()
         );
-        
-        // Don't save to database automatically - let the caller decide
-        // The caller (SignalInspectActivity) will ask user if they want to save
         
         // Stop service
         if (serviceBound && scanService != null) {
             scanService.stopScan();
-            context.unbindService(serviceConnection);
-            serviceBound = false;
         }
-        
+        if (bindRequested) {
+            try {
+                context.unbindService(serviceConnection);
+            } catch (IllegalArgumentException e) {
+                // 已经解绑过（例如服务被系统回收），忽略即可。
+            }
+            bindRequested = false;
+        }
+        serviceBound = false;
+        scanService = null;
+
+
         Intent intent = new Intent(context, SignalScanService.class);
         context.stopService(intent);
         
@@ -143,7 +184,14 @@ public class ScanRepositoryImpl implements ScanRepository {
             List<ScanRecord> records = new ArrayList<>();
             if (entities != null) {
                 for (ScanRecordEntity entity : entities) {
-                    records.add(EntityMappers.toDomain(entity));
+                    try {
+                        ScanRecord record = EntityMappers.toDomain(entity);
+                        if (record != null) {
+                            records.add(record);
+                        }
+                    } catch (Throwable e) {
+                        android.util.Log.e("ScanRepositoryImpl", "Error mapping ScanRecordEntity to domain", e);
+                    }
                 }
             }
             return records;
@@ -160,6 +208,18 @@ public class ScanRepositoryImpl implements ScanRepository {
         if (serviceBound && scanService != null) {
             return scanService.getAllDevices();
         }
-        return new ArrayList<>();
+        return new ArrayList<>(lastSessionDevices);
+    }
+
+    @Override
+    public List<SignalDevice> getSessionDevices() {
+        if (serviceBound && scanService != null) {
+            List<SignalDevice> list = scanService.getSessionDevices();
+            if (list != null && !list.isEmpty()) {
+                lastSessionDevices = new ArrayList<>(list);
+                return list;
+            }
+        }
+        return new ArrayList<>(lastSessionDevices);
     }
 }

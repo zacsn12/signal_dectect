@@ -129,6 +129,7 @@ public class ScanRecordAdapter extends ListAdapter<ScanRecordEntity, ScanRecordA
         }
         
         void bind(ScanRecordEntity record) {
+            if (record == null) return;
             // Set scan type
             String scanType = getScanTypeName(record.getScanType());
             binding.tvScanType.setText(scanType);
@@ -149,8 +150,6 @@ public class ScanRecordAdapter extends ListAdapter<ScanRecordEntity, ScanRecordA
             binding.tvDeviceCount.setText("设备数: " + record.getDeviceCount());
             
             // Set Apple device info (if available)
-            // Note: This requires parsing devicesJson to count Apple devices
-            // For now, hide it
             binding.tvAppleInfo.setVisibility(View.GONE);
             
             // Handle selection mode

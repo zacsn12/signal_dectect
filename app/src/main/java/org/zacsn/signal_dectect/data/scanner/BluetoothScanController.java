@@ -381,14 +381,15 @@ public class BluetoothScanController {
     }
 
     private boolean isLocallyAdministeredAddress(String macAddress) {
+        // 输入非法/无法解析时，保守地视为“本地管理/随机地址”，避免据此误判厂商（与 WiFi 侧一致）。
         if (macAddress == null || macAddress.length() < 2) {
-            return false;
+            return true;
         }
         try {
             int firstOctet = Integer.parseInt(macAddress.substring(0, 2), 16);
             return (firstOctet & 0x02) != 0;
         } catch (NumberFormatException e) {
-            return false;
+            return true;
         }
     }
 
@@ -923,10 +924,6 @@ public class BluetoothScanController {
             && !manufacturer.equals("未知")
             && !manufacturer.equals("未知厂商")
             && !manufacturer.equals("随机地址");
-    }
-    
-    public ConcurrentHashMap<String, SignalDevice> getDeviceMap() {
-        return deviceMap;
     }
 
     private ManufacturerEvidence evaluatePassiveManufacturer(
