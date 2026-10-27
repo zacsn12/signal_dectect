@@ -52,7 +52,7 @@
             android:id="@+id/tv_subtitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="无线安全筛查终端"
+            android:text="无线安全与摄像头筛查终端"
             android:textSize="13sp"
             android:textColor="#94A3B8"
             android:layout_marginTop="4dp"
